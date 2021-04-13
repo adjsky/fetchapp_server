@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
-	"os"
 	"server/config"
 	"server/internal/services/auth"
 	"server/internal/services/ege"
@@ -31,7 +30,10 @@ type app struct {
 
 // New creates the application instance
 func New() *app {
-	cfg := config.Get()
+	cfg, err := config.Get()
+	if err != nil {
+		log.Fatal(err)
+	}
 	db, err := sql.Open("postgres", cfg.DatabaseUrl)
 	if err != nil {
 		log.Fatal(err)
@@ -47,7 +49,6 @@ func New() *app {
 // Close does cleaning operations on the application
 func (app *app) Close() {
 	_ = app.Database.Close()
-	_ = os.RemoveAll(app.Config.TempDir)
 }
 
 func (app *app) initializeServices() {
