@@ -2,6 +2,7 @@ package ege
 
 import (
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -64,7 +65,8 @@ func (serv *service) handleQuestion(w http.ResponseWriter, req *http.Request) {
 	result, err := processQuestion(questionNumber, fPath, &reqData)
 	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
 	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, result)
+		log.Println(result)
+		handlers.RespondError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	resultInt, _ := strconv.Atoi(result)
@@ -79,7 +81,8 @@ func (serv *service) handleAvailable(w http.ResponseWriter, req *http.Request) {
 	result, err := executeScript(pythonScriptPath, "available")
 	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
 	if err != nil {
-		handlers.RespondError(w, http.StatusInternalServerError, result)
+		log.Println(result)
+		handlers.RespondError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	res := availableResponse{
@@ -94,7 +97,8 @@ func (serv *service) handleQuestionTypes(w http.ResponseWriter, req *http.Reques
 	result, err := executeScript(pythonScriptPath, "types", questionNumber)
 	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
 	if err != nil {
-		handlers.RespondError(w, http.StatusInternalServerError, result)
+		log.Println(result)
+		handlers.RespondError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	res := questionTypesResponse{

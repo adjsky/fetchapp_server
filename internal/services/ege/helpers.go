@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const pythonScriptPath string = "../internal/services/ege/python/main.py"
+const pythonScriptPath string = "internal/services/ege/python/main.py"
 
 func executeScript(args ...string) (string, error) {
 	var out strings.Builder

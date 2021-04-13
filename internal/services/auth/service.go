@@ -85,7 +85,7 @@ func (serv *service) handleLogin(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var password string
-	row := serv.database.QueryRow("SELECT password FROM Users WHERE email = ?", reqData.Email)
+	row := serv.database.QueryRow("SELECT password FROM Users WHERE email = $1", reqData.Email)
 	err = row.Scan(&password)
 	if err != nil {
 		handlers.RespondError(w, http.StatusUnauthorized, "no user registered with this email")
@@ -125,7 +125,7 @@ func (serv *service) handleSignup(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		fmt.Println("hash generating error in signup: ", err)
 	}
-	_, err = serv.database.Exec("INSERT INTO Users (email, password) VALUES (?, ?)", reqData.Email, hashPassword)
+	_, err = serv.database.Exec("INSERT INTO Users (email, password) VALUES ($1, $2)", reqData.Email, hashPassword)
 	if err != nil {
 		handlers.RespondError(w, http.StatusConflict, "this email is registered")
 		return
@@ -169,7 +169,7 @@ func (serv *service) handleRestoreAuth(w http.ResponseWriter, req *http.Request)
 	}
 	var userID int
 	var userPassword string
-	row := serv.database.QueryRow("SELECT ID, password FROM Users WHERE email = ?", userClaims.Email)
+	row := serv.database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", userClaims.Email)
 	_ = row.Scan(&userID, &userPassword)
 	if bcrypt.CompareHashAndPassword([]byte(userPassword), []byte(reqData.OldPassword)) != nil {
 		handlers.RespondError(w, http.StatusUnauthorized, "old password doesn't correspond to account password")
@@ -179,7 +179,7 @@ func (serv *service) handleRestoreAuth(w http.ResponseWriter, req *http.Request)
 	if err != nil {
 		fmt.Println("hash generating error in restore: ", err)
 	}
-	_, _ = serv.database.Exec("UPDATE Users SET password = ? WHERE ID = ?", hashPassword, userID)
+	_, _ = serv.database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
 	handlers.Respond(w, restoreResponse{Code: http.StatusOK}, http.StatusOK)
 }
 
@@ -196,7 +196,7 @@ func (serv *service) handleRestoreNonAuth(w http.ResponseWriter, req *http.Reque
 			handlers.RespondError(w, http.StatusBadRequest, "no email provided")
 			return
 		}
-		row := serv.database.QueryRow("SELECT ID FROM Users WHERE email = ?", reqData.Email)
+		row := serv.database.QueryRow("SELECT ID FROM Users WHERE email = $1", reqData.Email)
 		err := row.Scan()
 		if err == sql.ErrNoRows {
 			handlers.RespondError(w, http.StatusBadRequest, "no user with provided email registered")
@@ -238,7 +238,7 @@ func (serv *service) handleRestoreNonAuth(w http.ResponseWriter, req *http.Reque
 		}
 		var userID int
 		var userPassword string
-		row := serv.database.QueryRow("SELECT ID, password FROM Users WHERE email = ?", restoreSession.email)
+		row := serv.database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", restoreSession.email)
 		_ = row.Scan(&userID, &userPassword)
 		if bcrypt.CompareHashAndPassword([]byte(userPassword), []byte(reqData.OldPassword)) != nil {
 			handlers.RespondError(w, http.StatusUnauthorized, "old password doesn't correspond to account password")
@@ -248,7 +248,7 @@ func (serv *service) handleRestoreNonAuth(w http.ResponseWriter, req *http.Reque
 		if err != nil {
 			fmt.Println("hash generating error in restore: ", err)
 		}
-		_, _ = serv.database.Exec("UPDATE Users SET password = ? WHERE ID = ?", hashPassword, userID)
+		_, _ = serv.database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
 		delete(serv.restoreSessions, reqData.Code)
 		handlers.Respond(w, restoreResponse{Code: http.StatusOK}, http.StatusOK)
 	}

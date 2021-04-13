@@ -16,13 +16,13 @@ import (
 	"github.com/gorilla/mux"
 
 	// initialize a driver
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 )
 
-const migrationScheme string = "CREATE TABLE IF NOT EXISTS 'Users' (" +
-	"'ID' INTEGER PRIMARY KEY," +
-	"'password'	TEXT NOT NULL," +
-	"'email' TEXT NOT NULL UNIQUE);"
+const migrationScheme string = "CREATE TABLE IF NOT EXISTS Users (" +
+	"ID SERIAL PRIMARY KEY," +
+	"email TEXT NOT NULL UNIQUE," +
+	"password TEXT NOT NULL);"
 
 type app struct {
 	Config   *config.Config
@@ -34,7 +34,7 @@ type app struct {
 // New creates the application instance
 func New() *app {
 	cfg := config.Get()
-	db, err := sql.Open("sqlite3", "../database.db")
+	db, err := sql.Open("postgres", cfg.DatabaseUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -90,6 +90,6 @@ func migrateTable(db *sql.DB) {
 func (app *app) Start() {
 	app.initializeServices()
 	log.Println("Starting server on port: " + app.Config.Port)
-	log.Fatal(http.ListenAndServe(app.Config.Realm+":"+app.Config.Port, app.Router))
+	log.Fatal(http.ListenAndServe(":"+app.Config.Port, app.Router))
 	//log.Fatal(http.ListenAndServeTLS(cfg.Realm+":"+cfg.Port, cfg.CertFile, cfg.KeyFile, r))
 }
