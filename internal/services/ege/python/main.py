@@ -14,7 +14,7 @@ def cli():
 @click.option("-c", "--char", type=str, help="char to count")
 def solve(number, file_, type_, char):
     """
-        Solve exam problem
+        Solve an exam problem
 
         NUMBER is a question number
     """
