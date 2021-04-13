@@ -55,6 +55,7 @@ func Get() (*Config, error) {
 	if tempDir == "" {
 		return nil, errors.New("no temporary dir path provided")
 	}
+	_ = os.MkdirAll(tempDir, 0770) // create if not exists
 	smtpMail := os.Getenv("SMTP_MAIL")
 	if smtpMail == "" {
 		return nil, errors.New("no smtp mail provided")
