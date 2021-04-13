@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-const pythonScriptPath string = "internal/services/ege/python/main.py"
-
 func executeScript(args ...string) (string, error) {
 	var out strings.Builder
 	var errOut strings.Builder
@@ -21,7 +19,7 @@ func executeScript(args ...string) (string, error) {
 	return out.String(), nil
 }
 
-func processQuestion(questionNumber int, filepath string, req *question24Request) (string, error) {
-	return executeScript(pythonScriptPath, "solve", strconv.Itoa(questionNumber), "-f",
+func processQuestion(scriptPath string, questionNumber int, filepath string, req *question24Request) (string, error) {
+	return executeScript(scriptPath, "solve", strconv.Itoa(questionNumber), "-f",
 		filepath, "-t", strconv.Itoa(req.Type), "-c", req.Char)
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"server/config"
 	"server/pkg/handlers"
 	"server/pkg/helpers"
 	"server/pkg/middlewares"
@@ -17,13 +18,13 @@ import (
 )
 
 type service struct {
-	tempDir string
+	config *config.Config
 }
 
 // NewService creates a new EGE service
-func NewService(tmpDir string) *service {
+func NewService(cfg *config.Config) *service {
 	return &service{
-		tempDir: tmpDir,
+		config: cfg,
 	}
 }
 
@@ -58,11 +59,11 @@ func (serv *service) handleQuestion(w http.ResponseWriter, req *http.Request) {
 		handlers.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	fName := helpers.SaveToFile(serv.tempDir, text)
-	fPath := filepath.Join(serv.tempDir, fName)
+	fName := helpers.SaveToFile(serv.config.TempDir, text)
+	fPath := filepath.Join(serv.config.TempDir, fName)
 	defer os.Remove(fPath)
 	questionNumber, _ := strconv.Atoi(mux.Vars(req)["number"]) // can ignore an error since router validates that path is a number
-	result, err := processQuestion(questionNumber, fPath, &reqData)
+	result, err := processQuestion(serv.config.PythonScriptPath, questionNumber, fPath, &reqData)
 	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
 	if err != nil {
 		log.Println(result)
@@ -78,7 +79,7 @@ func (serv *service) handleQuestion(w http.ResponseWriter, req *http.Request) {
 }
 
 func (serv *service) handleAvailable(w http.ResponseWriter, req *http.Request) {
-	result, err := executeScript(pythonScriptPath, "available")
+	result, err := executeScript(serv.config.PythonScriptPath, "available")
 	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
 	if err != nil {
 		log.Println(result)
@@ -94,7 +95,7 @@ func (serv *service) handleAvailable(w http.ResponseWriter, req *http.Request) {
 
 func (serv *service) handleQuestionTypes(w http.ResponseWriter, req *http.Request) {
 	questionNumber := mux.Vars(req)["number"]
-	result, err := executeScript(pythonScriptPath, "types", questionNumber)
+	result, err := executeScript(serv.config.PythonScriptPath, "types", questionNumber)
 	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
 	if err != nil {
 		log.Println(result)

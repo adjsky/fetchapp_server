@@ -3,16 +3,20 @@ package config
 import (
 	"log"
 	"os"
+
+	"github.com/dchest/uniuri"
 )
 
 // Config holds data required to start the application
 type Config struct {
-	SecretKey   []byte
-	Port        string
-	DatabaseUrl string
-	CertFile    string
-	KeyFile     string
-	Smtp        SmtpData
+	SecretKey        []byte
+	Port             string
+	DatabaseUrl      string
+	CertFile         string
+	KeyFile          string
+	PythonScriptPath string
+	TempDir          string
+	Smtp             SmtpData
 }
 
 // SmtpData struct provides data required to send emails
@@ -45,6 +49,14 @@ func Get() *Config {
 	if keyFile == "" {
 		//log.Fatal("No key file provided")
 	}
+	pythonScriptPath := os.Getenv("PYTHON_SCRIPT_PATH")
+	if pythonScriptPath == "" {
+		log.Fatal("No python script path provided")
+	}
+	tempDir, err := os.MkdirTemp("", uniuri.New())
+	if err != nil {
+		log.Fatal(err)
+	}
 	smtpMail := os.Getenv("SMTP_MAIL")
 	if smtpMail == "" {
 		log.Fatal("No smtp mail provided")
@@ -63,11 +75,13 @@ func Get() *Config {
 	}
 
 	return &Config{
-		SecretKey:   []byte(secret),
-		Port:        port,
-		DatabaseUrl: databaseUrl,
-		CertFile:    certFile,
-		KeyFile:     keyFile,
+		SecretKey:        []byte(secret),
+		Port:             port,
+		DatabaseUrl:      databaseUrl,
+		CertFile:         certFile,
+		KeyFile:          keyFile,
+		PythonScriptPath: pythonScriptPath,
+		TempDir:          tempDir,
 		Smtp: SmtpData{
 			Mail:     smtpMail,
 			Password: smtpPassword,

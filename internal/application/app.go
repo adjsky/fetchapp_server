@@ -12,7 +12,6 @@ import (
 	"server/pkg/middlewares"
 	"time"
 
-	"github.com/dchest/uniuri"
 	"github.com/gorilla/mux"
 
 	// initialize a driver
@@ -28,7 +27,6 @@ type app struct {
 	Config   *config.Config
 	Database *sql.DB
 	Router   *mux.Router
-	TempDir  string
 }
 
 // New creates the application instance
@@ -39,22 +37,17 @@ func New() *app {
 		log.Fatal(err)
 	}
 	migrateTable(db)
-	tempDir, err := os.MkdirTemp("", uniuri.New())
-	if err != nil {
-		log.Fatal(err)
-	}
 	return &app{
 		Config:   cfg,
 		Database: db,
 		Router:   mux.NewRouter(),
-		TempDir:  tempDir,
 	}
 }
 
 // Close does cleaning operations on the application
 func (app *app) Close() {
 	_ = app.Database.Close()
-	_ = os.RemoveAll(app.TempDir)
+	_ = os.RemoveAll(app.Config.TempDir)
 }
 
 func (app *app) initializeServices() {
@@ -75,7 +68,7 @@ func (app *app) initializeServices() {
 	apiRouter.Use(authService.AuthMiddleware)
 
 	egeRouter := apiRouter.PathPrefix("/ege").Subrouter()
-	egeService := ege.NewService(app.TempDir)
+	egeService := ege.NewService(app.Config)
 	egeService.Register(egeRouter)
 }
 
