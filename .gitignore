@@ -1,0 +1,7 @@
+database.db
+internal/services/ege/python/venv
+internal/services/ege/python/scripts/__pycache__/*
+.vscode
+.idea
+internal/services/ege/python/.vscode
+init_copy.sh
