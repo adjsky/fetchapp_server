@@ -1,10 +1,8 @@
 package config
 
 import (
-	"log"
+	"errors"
 	"os"
-
-	"github.com/dchest/uniuri"
 )
 
 // Config holds data required to start the application
@@ -28,50 +26,50 @@ type SmtpData struct {
 }
 
 // Get config instance filled with the required data to start the application
-func Get() *Config {
+func Get() (*Config, error) {
 	secret := os.Getenv("SECRET")
 	if secret == "" {
-		log.Fatal("No secret provided")
+		return nil, errors.New("no secret provided")
 	}
 	port := os.Getenv("PORT")
 	if port == "" {
-		log.Fatal("No port provided")
+		return nil, errors.New("no port provided")
 	}
 	databaseUrl := os.Getenv("DATABASE_URL")
 	if databaseUrl == "" {
-		log.Fatal("No database url provided")
+		return nil, errors.New("no database url provided")
 	}
 	certFile := os.Getenv("CERT_FILE")
 	if certFile == "" {
-		//log.Fatal("No certification file provided")
+		//return nil, errors.New("no certification file provided")
 	}
 	keyFile := os.Getenv("KEY_FILE")
 	if keyFile == "" {
-		//log.Fatal("No key file provided")
+		//return nil, errors.New("no key file provided")
 	}
 	pythonScriptPath := os.Getenv("PYTHON_SCRIPT_PATH")
 	if pythonScriptPath == "" {
-		log.Fatal("No python script path provided")
+		return nil, errors.New("no python script path provided")
 	}
-	tempDir, err := os.MkdirTemp("", uniuri.New())
-	if err != nil {
-		log.Fatal(err)
+	tempDir := os.Getenv("TEMP_DIR_PATH")
+	if tempDir == "" {
+		return nil, errors.New("no temporary dir path provided")
 	}
 	smtpMail := os.Getenv("SMTP_MAIL")
 	if smtpMail == "" {
-		log.Fatal("No smtp mail provided")
+		return nil, errors.New("no smtp mail provided")
 	}
 	smtpPassword := os.Getenv("SMTP_PASSWORD")
 	if smtpPassword == "" {
-		log.Fatal("No smtp password provided")
+		return nil, errors.New("no smtp password provided")
 	}
 	smtpHost := os.Getenv("SMTP_HOST")
 	if smtpHost == "" {
-		log.Fatal("No smtp host provided")
+		return nil, errors.New("no smtp host provided")
 	}
 	smtpPort := os.Getenv("SMTP_PORT")
 	if smtpPort == "" {
-		log.Fatal("No smtp port provided")
+		return nil, errors.New("no smtp port provided")
 	}
 
 	return &Config{
@@ -88,5 +86,5 @@ func Get() *Config {
 			Host:     smtpHost,
 			Port:     smtpPort,
 		},
-	}
+	}, nil
 }
