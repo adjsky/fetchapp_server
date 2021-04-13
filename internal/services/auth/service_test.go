@@ -17,7 +17,7 @@ func TestGetToken(t *testing.T) {
 		}
 	})
 	t.Run("GetToken returns an empty string if a request with a wrong authorization header is provided", func(t *testing.T) {
-		req.Header.Set("Authorization", "asdas")
+		req.Header.Set("Authorization", "asas")
 		token := GetToken(req)
 		if token != "" {
 			t.Errorf("expected an empty string, got: %s", token)
