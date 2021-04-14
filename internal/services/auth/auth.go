@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	tokenIssuer  string = "adjsky"
-	tokenSubject string = "auth"
+	tokenIssuer       = "adjsky"
+	tokenSubject      = "auth"
+	authTokenLifespan = time.Hour * 24
 )
 
 // UserClaims holds user information passed by Authorization HTTP header
@@ -26,7 +27,7 @@ func GenerateClaims(email string) *UserClaims {
 			IssuedAt:  time.Now().Unix(),
 			Issuer:    tokenIssuer,
 			Subject:   tokenSubject,
-			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
+			ExpiresAt: time.Now().Add(authTokenLifespan).Unix(),
 		},
 	}
 }
