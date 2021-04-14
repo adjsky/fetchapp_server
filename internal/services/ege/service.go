@@ -44,7 +44,7 @@ func (serv *service) handleQuestion(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var reqData question24Request
-	err = helpers.ParseBodyPartToJson(metadataPart, &reqData)
+	err = helpers.ParseBodyPartToJSON(metadataPart, &reqData)
 	if err != nil || reqData.Type == 0 {
 		handlers.RespondError(w, http.StatusBadRequest, "wrong metadata body")
 		return

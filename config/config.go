@@ -9,16 +9,16 @@ import (
 type Config struct {
 	SecretKey        []byte
 	Port             string
-	DatabaseUrl      string
+	DatabaseURL      string
 	CertFile         string
 	KeyFile          string
 	PythonScriptPath string
 	TempDir          string
-	Smtp             SmtpData
+	SMTP             SMTPData
 }
 
-// SmtpData struct provides data required to send emails
-type SmtpData struct {
+// SMTPData struct provides data required to send emails
+type SMTPData struct {
 	Mail     string
 	Password string
 	Host     string
@@ -35,17 +35,17 @@ func Get() (*Config, error) {
 	if port == "" {
 		return nil, errors.New("no port provided")
 	}
-	databaseUrl := os.Getenv("DATABASE_URL")
-	if databaseUrl == "" {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
 		return nil, errors.New("no database url provided")
 	}
 	certFile := os.Getenv("CERT_FILE")
 	if certFile == "" {
-		//return nil, errors.New("no certification file provided")
+		// return nil, errors.New("no certification file provided")
 	}
 	keyFile := os.Getenv("KEY_FILE")
 	if keyFile == "" {
-		//return nil, errors.New("no key file provided")
+		// return nil, errors.New("no key file provided")
 	}
 	pythonScriptPath := os.Getenv("PYTHON_SCRIPT_PATH")
 	if pythonScriptPath == "" {
@@ -76,12 +76,12 @@ func Get() (*Config, error) {
 	return &Config{
 		SecretKey:        []byte(secret),
 		Port:             port,
-		DatabaseUrl:      databaseUrl,
+		DatabaseURL:      databaseURL,
 		CertFile:         certFile,
 		KeyFile:          keyFile,
 		PythonScriptPath: pythonScriptPath,
 		TempDir:          tempDir,
-		Smtp: SmtpData{
+		SMTP: SMTPData{
 			Mail:     smtpMail,
 			Password: smtpPassword,
 			Host:     smtpHost,

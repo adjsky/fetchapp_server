@@ -54,12 +54,12 @@ func NewService(cfg *config.Config, db *sql.DB) *service {
 
 // Register auth service
 func (serv *service) Register(r *mux.Router) {
-	appJsonMiddleware := middlewares.ContentTypeValidator("application/json")
-	r.Handle("/login", appJsonMiddleware(http.HandlerFunc(serv.handleLogin))).Methods("POST")
-	r.Handle("/signup", appJsonMiddleware(http.HandlerFunc(serv.handleSignup))).Methods("POST")
-	r.Handle("/restore", appJsonMiddleware(http.HandlerFunc(serv.handleRestore))).Methods("PUT")
-	r.Handle("/restore/valid", appJsonMiddleware(http.HandlerFunc(serv.handleRestoreValid))).Methods("POST")
-	r.Handle("/valid", appJsonMiddleware(http.HandlerFunc(serv.handleValid))).Methods("POST")
+	appJSONMiddleware := middlewares.ContentTypeValidator("application/json")
+	r.Handle("/login", appJSONMiddleware(http.HandlerFunc(serv.handleLogin))).Methods("POST")
+	r.Handle("/signup", appJSONMiddleware(http.HandlerFunc(serv.handleSignup))).Methods("POST")
+	r.Handle("/restore", appJSONMiddleware(http.HandlerFunc(serv.handleRestore))).Methods("PUT")
+	r.Handle("/restore/valid", appJSONMiddleware(http.HandlerFunc(serv.handleRestoreValid))).Methods("POST")
+	r.Handle("/valid", appJSONMiddleware(http.HandlerFunc(serv.handleValid))).Methods("POST")
 }
 
 // CheckExpire checks and deletes outdated restore tokens
@@ -219,7 +219,7 @@ func (serv *service) handleRestoreNonAuth(w http.ResponseWriter, req *http.Reque
 		}
 		handlers.Respond(w, &res, res.Code)
 		go func() {
-			err := helpers.SendEmail(&serv.config.Smtp,
+			err := helpers.SendEmail(&serv.config.SMTP,
 				[]string{reqData.Email},
 				[]byte("Subject: Restore account\n"+code))
 			if err != nil {
@@ -287,7 +287,7 @@ func (serv *service) handleRestoreValid(w http.ResponseWriter, req *http.Request
 		return
 	}
 	_, ok := serv.restoreSessions[reqData.Code]
-	res := validResponse{
+	res := restoreValidResponse{
 		Code:  http.StatusOK,
 		Valid: ok,
 	}

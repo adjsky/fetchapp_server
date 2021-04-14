@@ -34,11 +34,12 @@ func New() *app {
 	if err != nil {
 		log.Fatal(err)
 	}
-	db, err := sql.Open("postgres", cfg.DatabaseUrl)
+	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 	migrateTable(db)
+
 	return &app{
 		Config:   cfg,
 		Database: db,
@@ -85,5 +86,5 @@ func (app *app) Start() {
 	app.initializeServices()
 	log.Println("Starting server on port: " + app.Config.Port)
 	log.Fatal(http.ListenAndServe(":"+app.Config.Port, app.Router))
-	//log.Fatal(http.ListenAndServeTLS(cfg.Realm+":"+cfg.Port, cfg.CertFile, cfg.KeyFile, r))
+	// log.Fatal(http.ListenAndServeTLS(cfg.Realm+":"+cfg.Port, cfg.CertFile, cfg.KeyFile, r))
 }

@@ -12,8 +12,7 @@ func executeScript(args ...string) (string, error) {
 	command := exec.Command("python", args...)
 	command.Stdout = &out
 	command.Stderr = &errOut
-	err := command.Run()
-	if err != nil {
+	if err := command.Run(); err != nil {
 		return errOut.String(), err
 	}
 	return out.String(), nil

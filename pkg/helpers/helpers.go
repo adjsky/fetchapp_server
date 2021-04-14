@@ -13,14 +13,14 @@ import (
 )
 
 // SendEmail sends an email by using smtp protocol
-func SendEmail(smtpData *config.SmtpData, to []string, message []byte) error {
+func SendEmail(smtpData *config.SMTPData, to []string, message []byte) error {
 	auth := smtp.PlainAuth("", smtpData.Mail, smtpData.Password, smtpData.Host)
 	err := smtp.SendMail(smtpData.Host+":"+smtpData.Port, auth, smtpData.Mail, to, message)
 	return err
 }
 
-// ParseBodyPartToJson parses a given multipart and unmarshalls its content
-func ParseBodyPartToJson(part *multipart.Part, v interface{}) error {
+// ParseBodyPartToJSON parses a given multipart and unmarshalls its content
+func ParseBodyPartToJSON(part *multipart.Part, v interface{}) error {
 	metadataBody, err := io.ReadAll(part)
 	if err != nil {
 		return err
