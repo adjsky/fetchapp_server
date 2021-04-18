@@ -19,8 +19,8 @@ import (
 
 const migrationScheme = "CREATE TABLE IF NOT EXISTS Users (" +
 	"ID SERIAL PRIMARY KEY," +
-	"email TEXT NOT NULL UNIQUE," +
-	"password TEXT NOT NULL," +
+	"email VARCHAR(100) NOT NULL UNIQUE," +
+	"password VARCHAR(100) NOT NULL," +
 	"created_at TIMESTAMP NOT NULL DEFAULT NOW());"
 
 type app struct {
