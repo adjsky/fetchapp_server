@@ -36,7 +36,6 @@ func GenerateClaims(email string) *UserClaims {
 func GenerateTokenString(claims *UserClaims, secretKey []byte) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	ss, err := token.SignedString(secretKey)
-
 	return ss, err
 }
 

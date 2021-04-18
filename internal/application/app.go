@@ -17,10 +17,11 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const migrationScheme string = "CREATE TABLE IF NOT EXISTS Users (" +
+const migrationScheme = "CREATE TABLE IF NOT EXISTS Users (" +
 	"ID SERIAL PRIMARY KEY," +
 	"email TEXT NOT NULL UNIQUE," +
-	"password TEXT NOT NULL);"
+	"password TEXT NOT NULL," +
+	"created_at TIMESTAMP NOT NULL DEFAULT NOW());"
 
 type app struct {
 	Config   *config.Config
@@ -77,7 +78,7 @@ func (app *app) initializeServices() {
 func migrateTable(db *sql.DB) {
 	_, err := db.Exec(migrationScheme)
 	if err != nil {
-		log.Fatal("failed to migrate the database scheme")
+		log.Fatal("table migration: ", err)
 	}
 }
 
