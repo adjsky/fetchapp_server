@@ -2,24 +2,21 @@ package auth
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"regexp"
 	"server/config"
-	"server/pkg/handlers"
 	"server/pkg/helpers"
-	"server/pkg/middlewares"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/dchest/uniuri"
+
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/dchest/uniuri"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 var emailRegex *regexp.Regexp
@@ -32,196 +29,224 @@ func init() {
 	emailRegex = regexp.MustCompile(`^\S+@\S+$`)
 }
 
-type restoreSession struct {
-	email     string
-	createdAt time.Time
+type RestoreSession struct {
+	Email     string
+	CreatedAt time.Time
 }
 
-type service struct {
-	config          *config.Config
-	database        *sql.DB
-	restoreSessions map[string]restoreSession
-	restoreMutex    sync.RWMutex
+type Service struct {
+	Config          *config.Config
+	Database        *sql.DB
+	RestoreSessions map[string]RestoreSession
+	RestoreMutex    sync.RWMutex
 }
 
-// NewService creates a new auth service
-func NewService(cfg *config.Config, db *sql.DB) *service {
-	s := service{
-		config:          cfg,
-		database:        db,
-		restoreSessions: make(map[string]restoreSession),
+// NewService creates a new auth Service
+func NewService(cfg *config.Config, db *sql.DB) *Service {
+	s := Service{
+		Config:          cfg,
+		Database:        db,
+		RestoreSessions: make(map[string]RestoreSession),
 	}
 	return &s
 }
 
-// Register auth service
-func (serv *service) Register(r *mux.Router) {
-	appJSONMiddleware := middlewares.ContentTypeValidator("application/json")
-	r.Handle("/login", appJSONMiddleware(http.HandlerFunc(serv.handleLogin))).Methods("POST")
-	r.Handle("/signup", appJSONMiddleware(http.HandlerFunc(serv.handleSignup))).Methods("POST")
-	r.Handle("/restore", appJSONMiddleware(http.HandlerFunc(serv.handleRestore))).Methods("PUT")
-	r.Handle("/restore/valid", appJSONMiddleware(http.HandlerFunc(serv.handleRestoreValid))).Methods("POST")
-	r.Handle("/valid", appJSONMiddleware(http.HandlerFunc(serv.handleValid))).Methods("POST")
+// Register auth Service
+func (serv *Service) Register(r *gin.RouterGroup) {
+	r.POST("/login", serv.handleLogin)
+	r.POST("/signup", serv.handleSignup)
+	r.PUT("/restore", serv.handleRestore)
+	r.POST("/restore/valid", serv.handleRestoreValid)
+	r.POST("/valid", serv.handleValid)
 }
 
 // CheckExpire checks and deletes outdated restore tokens
-func (serv *service) CheckExpire() {
-	for k, v := range serv.restoreSessions {
-		timePassed := time.Since(v.createdAt)
+func (serv *Service) CheckExpire() {
+	for k, v := range serv.RestoreSessions {
+		timePassed := time.Since(v.CreatedAt)
 		if timePassed.Seconds() >= restoreSessionDuration.Seconds() {
-			delete(serv.restoreSessions, k)
+			delete(serv.RestoreSessions, k)
 		}
 	}
 }
 
-func (serv *service) handleLogin(w http.ResponseWriter, req *http.Request) {
-	data, _ := io.ReadAll(req.Body)
+func (serv *Service) handleLogin(c *gin.Context) {
 	var reqData loginRequest
-	err := json.Unmarshal(data, &reqData)
-	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if reqData.Email == "" || reqData.Password == "" {
-		handlers.RespondError(w, http.StatusBadRequest, "no password or email provided")
+	if err := c.ShouldBindJSON(&reqData); err != nil {
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "invalid request body",
+		})
 		return
 	}
 	var password string
-	row := serv.database.QueryRow("SELECT password FROM Users WHERE email = $1", reqData.Email)
-	err = row.Scan(&password)
-	if err != nil {
-		handlers.RespondError(w, http.StatusUnauthorized, "no user registered with this email")
+	row := serv.Database.QueryRow("SELECT password FROM Users WHERE email = $1", reqData.Email)
+	if err := row.Scan(&password); err != nil {
+		code := http.StatusUnauthorized
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "no user registered with this email",
+		})
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(password), []byte(reqData.Password)) != nil {
-		handlers.RespondError(w, http.StatusUnauthorized, "wrong email/password pair")
+		code := http.StatusUnauthorized
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "wrong email/password pair",
+		})
 		return
 	}
 	claims := GenerateClaims(reqData.Email)
-	token, _ := GenerateTokenString(claims, serv.config.SecretKey)
-	res := loginResponse{
-		Code:  http.StatusOK,
-		Token: token,
-	}
-	handlers.Respond(w, &res, res.Code)
+	token, _ := GenerateTokenString(claims, serv.Config.SecretKey)
+	code := http.StatusOK
+	c.JSON(code, gin.H{
+		"code":  code,
+		"token": token,
+	})
 }
 
-func (serv *service) handleSignup(w http.ResponseWriter, req *http.Request) {
-	data, _ := io.ReadAll(req.Body)
+func (serv *Service) handleSignup(c *gin.Context) {
 	var reqData signupRequest
-	err := json.Unmarshal(data, &reqData)
-	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if reqData.Email == "" || reqData.Password == "" {
-		handlers.RespondError(w, http.StatusBadRequest, "no password or email provided")
+	if err := c.ShouldBindJSON(&reqData); err != nil {
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "invalid request body",
+		})
 		return
 	}
 	matched := emailRegex.Match([]byte(reqData.Email))
 	if !matched {
-		handlers.RespondError(w, http.StatusBadRequest, "invalid email address")
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "invalid email address",
+		})
 		return
 	}
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(reqData.Password), bcrypt.DefaultCost)
 	if err != nil {
 		fmt.Println("hash generating error in signup: ", err)
 	}
-	_, err = serv.database.Exec("INSERT INTO Users (email, password) VALUES ($1, $2)", reqData.Email, hashPassword)
+	_, err = serv.Database.Exec("INSERT INTO Users (email, password) VALUES ($1, $2)", reqData.Email, hashPassword)
 	if err != nil {
-		handlers.RespondError(w, http.StatusConflict, "this email is registered")
+		code := http.StatusConflict
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "this email is registered",
+		})
 		return
 	}
 	claims := GenerateClaims(reqData.Email)
-	token, err := GenerateTokenString(claims, serv.config.SecretKey)
+	token, err := GenerateTokenString(claims, serv.Config.SecretKey)
 	if err != nil {
 		log.Println(err)
 	}
-	res := signupResponse{
-		Code:  http.StatusOK,
-		Token: token,
-	}
-	handlers.Respond(w, &res, res.Code)
+	code := http.StatusOK
+	c.JSON(code, gin.H{
+		"code":  code,
+		"token": token,
+	})
 }
 
-func (serv *service) handleRestore(w http.ResponseWriter, req *http.Request) {
-	if CheckAuthorized(req) {
-		serv.handleRestoreAuth(w, req)
+func (serv *Service) handleRestore(c *gin.Context) {
+	if CheckAuthorized(c) {
+		serv.handleRestoreAuth(c)
 	} else {
-		serv.handleRestoreNonAuth(w, req)
+		serv.handleRestoreNonAuth(c)
 	}
 }
 
-func (serv *service) handleRestoreAuth(w http.ResponseWriter, req *http.Request) {
-	data, _ := io.ReadAll(req.Body)
+func (serv *Service) handleRestoreAuth(c *gin.Context) {
 	var reqData restoreRequest
-	err := json.Unmarshal(data, &reqData)
-	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, "invalid request body")
+	if err := c.ShouldBindJSON(&reqData); err != nil {
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "invalid request body",
+		})
 		return
 	}
-	if reqData.OldPassword == "" || reqData.NewPassword == "" {
-		handlers.RespondError(w, http.StatusBadRequest, "no old or new password provided")
-		return
-	}
-	userClaims, err := GetClaims(GetToken(req), serv.config.SecretKey)
+	userClaims, err := GetClaims(GetToken(c), serv.Config.SecretKey)
 	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, "invalid auth token provided")
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "invalid auth token provided",
+		})
 		return
 	}
 	var userID int
 	var userPassword string
-	row := serv.database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", userClaims.Email)
+	row := serv.Database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", userClaims.Email)
 	_ = row.Scan(&userID, &userPassword)
 	if bcrypt.CompareHashAndPassword([]byte(userPassword), []byte(reqData.OldPassword)) != nil {
-		handlers.RespondError(w, http.StatusUnauthorized, "old password doesn't correspond to account password")
+		code := http.StatusUnauthorized
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "old password doesn't correspond to account password",
+		})
 		return
 	}
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(reqData.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
 		fmt.Println("hash generating error in restore: ", err)
 	}
-	_, _ = serv.database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
-	handlers.Respond(w, restoreResponse{Code: http.StatusOK}, http.StatusOK)
+	_, _ = serv.Database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
+	code := http.StatusOK
+	c.JSON(code, gin.H{
+		"code": code,
+	})
 }
 
-func (serv *service) handleRestoreNonAuth(w http.ResponseWriter, req *http.Request) {
-	data, _ := io.ReadAll(req.Body)
+func (serv *Service) handleRestoreNonAuth(c *gin.Context) {
 	var reqData restoreRequest
-	err := json.Unmarshal(data, &reqData)
-	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, "invalid request body")
+	if err := c.ShouldBindJSON(&reqData); err != nil {
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "invalid request body",
+		})
 		return
 	}
 	if reqData.Code == "" {
 		if reqData.Email == "" {
-			handlers.RespondError(w, http.StatusBadRequest, "no email provided")
+			code := http.StatusBadRequest
+			c.JSON(code, gin.H{
+				"code":    code,
+				"message": "no email provided",
+			})
 			return
 		}
-		row := serv.database.QueryRow("SELECT ID FROM Users WHERE email = $1", reqData.Email)
-		err := row.Scan()
-		if err == sql.ErrNoRows {
-			handlers.RespondError(w, http.StatusBadRequest, "no user with provided email registered")
+		row := serv.Database.QueryRow("SELECT ID FROM Users WHERE email = $1", reqData.Email)
+		if err := row.Scan(); err == sql.ErrNoRows {
+			code := http.StatusBadRequest
+			c.JSON(code, gin.H{
+				"code":    code,
+				"message": "no user with provided email registered",
+			})
 			return
 		}
 		code := uniuri.NewLen(8)
-		serv.restoreMutex.Lock()
-		defer serv.restoreMutex.Unlock()
-		for k, v := range serv.restoreSessions {
-			if v.email == reqData.Email {
-				delete(serv.restoreSessions, k)
+		serv.RestoreMutex.Lock()
+		defer serv.RestoreMutex.Unlock()
+		for k, v := range serv.RestoreSessions {
+			if v.Email == reqData.Email {
+				delete(serv.RestoreSessions, k)
 			}
 		}
-		serv.restoreSessions[code] = restoreSession{
-			email:     reqData.Email,
-			createdAt: time.Now(),
+		serv.RestoreSessions[code] = RestoreSession{
+			Email:     reqData.Email,
+			CreatedAt: time.Now(),
 		}
-		res := restoreResponse{
-			Code: http.StatusAccepted,
-		}
-		handlers.Respond(w, &res, res.Code)
+		statusCode := http.StatusAccepted
+		c.JSON(statusCode, gin.H{
+			"code": statusCode,
+		})
 		go func() {
-			err := helpers.SendEmail(&serv.config.SMTP,
+			err := helpers.SendEmail(&serv.Config.SMTP,
 				[]string{reqData.Email},
 				[]byte("Subject: Restore account\n"+code))
 			if err != nil {
@@ -230,75 +255,86 @@ func (serv *service) handleRestoreNonAuth(w http.ResponseWriter, req *http.Reque
 		}()
 	} else {
 		if reqData.NewPassword == "" || reqData.OldPassword == "" {
-			handlers.RespondError(w, http.StatusBadRequest, "no new or old password provided")
+			code := http.StatusBadRequest
+			c.JSON(code, gin.H{
+				"code":    code,
+				"message": "no new or old password provided",
+			})
 			return
 		}
-		restoreSession, ok := serv.restoreSessions[reqData.Code]
+		restoreSession, ok := serv.RestoreSessions[reqData.Code]
 		if !ok {
-			handlers.RespondError(w, http.StatusBadRequest, "invalid token provided")
+			code := http.StatusBadRequest
+			c.JSON(code, gin.H{
+				"code":    code,
+				"message": "invalid token provided",
+			})
 			return
 		}
 		var userID int
 		var userPassword string
-		row := serv.database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", restoreSession.email)
+		row := serv.Database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", restoreSession.Email)
 		_ = row.Scan(&userID, &userPassword)
 		if bcrypt.CompareHashAndPassword([]byte(userPassword), []byte(reqData.OldPassword)) != nil {
-			handlers.RespondError(w, http.StatusUnauthorized, "old password doesn't correspond to account password")
+			code := http.StatusUnauthorized
+			c.JSON(code, gin.H{
+				"code":    code,
+				"message": "old password doesn't correspond to account password",
+			})
 			return
 		}
 		hashPassword, err := bcrypt.GenerateFromPassword([]byte(reqData.NewPassword), bcrypt.DefaultCost)
 		if err != nil {
 			fmt.Println("hash generating error in restore: ", err)
 		}
-		_, _ = serv.database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
-		delete(serv.restoreSessions, reqData.Code)
-		handlers.Respond(w, restoreResponse{Code: http.StatusOK}, http.StatusOK)
+		_, _ = serv.Database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
+		delete(serv.RestoreSessions, reqData.Code)
+		code := http.StatusOK
+		c.JSON(code, gin.H{
+			"code": code,
+		})
 	}
 }
 
-func (serv *service) handleValid(w http.ResponseWriter, req *http.Request) {
-	data, _ := io.ReadAll(req.Body)
+func (serv *Service) handleValid(c *gin.Context) {
 	var reqData validRequest
-	err := json.Unmarshal(data, &reqData)
-	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, "invalid request body")
+	if err := c.ShouldBindJSON(&reqData); err != nil {
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "invalid request body",
+		})
 		return
 	}
-	if reqData.Token == "" {
-		handlers.RespondError(w, http.StatusBadRequest, "no token provided")
-		return
-	}
-	_, err = GetClaims(reqData.Token, serv.config.SecretKey)
-	res := validResponse{
-		Code:  http.StatusOK,
-		Valid: err == nil,
-	}
-	handlers.Respond(w, &res, res.Code)
+	_, err := GetClaims(reqData.Token, serv.Config.SecretKey)
+	code := http.StatusOK
+	c.JSON(code, gin.H{
+		"code":  code,
+		"valid": err == nil,
+	})
 }
 
-func (serv *service) handleRestoreValid(w http.ResponseWriter, req *http.Request) {
-	data, _ := io.ReadAll(req.Body)
+func (serv *Service) handleRestoreValid(c *gin.Context) {
 	var reqData restoreValidRequest
-	err := json.Unmarshal(data, &reqData)
-	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, "invalid request body")
+	if err := c.ShouldBindJSON(&reqData); err != nil {
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "invalid request body",
+		})
 		return
 	}
-	if reqData.Code == "" || reqData.Email == "" {
-		handlers.RespondError(w, http.StatusBadRequest, "no code or email provided")
-		return
-	}
-	_, ok := serv.restoreSessions[reqData.Code]
-	res := restoreValidResponse{
-		Code:  http.StatusOK,
-		Valid: ok,
-	}
-	handlers.Respond(w, &res, res.Code)
+	_, ok := serv.RestoreSessions[reqData.Code]
+	code := http.StatusOK
+	c.JSON(code, gin.H{
+		"code":  code,
+		"valid": ok,
+	})
 }
 
 // CheckAuthorized checks whether a given request has a bearer token and returns it
-func CheckAuthorized(req *http.Request) bool {
-	authHeader := req.Header.Get("Authorization")
+func CheckAuthorized(c *gin.Context) bool {
+	authHeader := c.GetHeader("Authorization")
 	authData := strings.Split(authHeader, " ")
 	if len(authData) == 0 {
 		return false
@@ -310,9 +346,9 @@ func CheckAuthorized(req *http.Request) bool {
 }
 
 // GetToken returns a token from a request or an empty string if an user is not authorized or has an invalid authorization header
-func GetToken(req *http.Request) string {
-	if CheckAuthorized(req) {
-		return strings.Split(req.Header.Get("Authorization"), " ")[1]
+func GetToken(c *gin.Context) string {
+	if CheckAuthorized(c) {
+		return strings.Split(c.GetHeader("Authorization"), " ")[1]
 	}
 	return ""
 }

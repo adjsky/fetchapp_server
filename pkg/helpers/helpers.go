@@ -3,11 +3,13 @@ package helpers
 import (
 	"encoding/json"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/smtp"
 	"os"
 	"path/filepath"
 	"server/config"
+	"strings"
 
 	"github.com/dchest/uniuri"
 )
@@ -37,4 +39,20 @@ func SaveToFile(path string, data []byte) (filename string) {
 	filename = uniuri.NewLen(32)
 	_ = os.WriteFile(filepath.Join(path, filename), data, 0770)
 	return
+}
+
+// GetBoundary returns a boundary provided in a Content-Type header or an empty string if there's no boundary
+func GetBoundary(header string) string {
+	contentType, params, err := mime.ParseMediaType(header)
+	if err != nil {
+		return ""
+	}
+	if strings.HasPrefix(contentType, "multipart") {
+		boundary, ok := params["boundary"]
+		if !ok {
+			return ""
+		}
+		return boundary
+	}
+	return ""
 }

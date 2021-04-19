@@ -3,7 +3,6 @@ package application
 import (
 	"database/sql"
 	"log"
-	"net/http"
 	"server/config"
 	"server/internal/services/auth"
 	"server/internal/services/ege"
@@ -11,26 +10,29 @@ import (
 	"server/pkg/middlewares"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 
 	// initialize a driver
 	_ "github.com/lib/pq"
 )
 
-const migrationScheme = "CREATE TABLE IF NOT EXISTS Users (" +
-	"ID SERIAL PRIMARY KEY," +
-	"email VARCHAR(100) NOT NULL UNIQUE," +
-	"password VARCHAR(100) NOT NULL," +
-	"created_at TIMESTAMP NOT NULL DEFAULT NOW());"
+const (
+	migrationScheme = "CREATE TABLE IF NOT EXISTS Users (" +
+		"ID SERIAL PRIMARY KEY," +
+		"email VARCHAR(100) NOT NULL UNIQUE," +
+		"password VARCHAR(100) NOT NULL," +
+		"created_at TIMESTAMP NOT NULL DEFAULT NOW());"
+	refreshPeriod = time.Minute * 5
+)
 
-type app struct {
+type App struct {
 	Config   *config.Config
 	Database *sql.DB
-	Router   *mux.Router
+	Router   *gin.Engine
 }
 
 // New creates the application instance
-func New() *app {
+func New() *App {
 	cfg, err := config.Get()
 	if err != nil {
 		log.Fatal(err)
@@ -41,36 +43,38 @@ func New() *app {
 	}
 	migrateTable(db)
 
-	return &app{
+	return &App{
 		Config:   cfg,
 		Database: db,
-		Router:   mux.NewRouter(),
+		Router:   gin.New(),
 	}
 }
 
 // Close does cleaning operations on the application
-func (app *app) Close() {
+func (app *App) Close() {
 	_ = app.Database.Close()
 }
 
-func (app *app) initializeServices() {
-	app.Router.Use(middlewares.Log)
-	app.Router.NotFoundHandler = http.HandlerFunc(handlers.NotFound)
+func (app *App) initializeServices() {
+	app.Router.Use(middlewares.Logger())
+	app.Router.NoRoute(handlers.NotFound)
+	app.Router.HandleMethodNotAllowed = true
+	app.Router.NoMethod(handlers.NoMethod)
 
-	authRouter := app.Router.PathPrefix("/auth").Subrouter()
+	authRouter := app.Router.Group("auth/")
 	authService := auth.NewService(app.Config, app.Database)
 	go func() {
 		for {
-			time.Sleep(time.Minute * 5)
+			time.Sleep(refreshPeriod)
 			authService.CheckExpire()
 		}
 	}()
 	authService.Register(authRouter)
 
-	apiRouter := app.Router.PathPrefix("/api").Subrouter()
-	apiRouter.Use(authService.AuthMiddleware)
+	apiRouter := app.Router.Group("api/")
+	apiRouter.Use(authService.AuthMiddleware())
 
-	egeRouter := apiRouter.PathPrefix("/ege").Subrouter()
+	egeRouter := apiRouter.Group("ege/")
 	egeService := ege.NewService(app.Config)
 	egeService.Register(egeRouter)
 }
@@ -83,9 +87,11 @@ func migrateTable(db *sql.DB) {
 }
 
 // Start the server
-func (app *app) Start() {
+func (app *App) Start() {
 	app.initializeServices()
-	log.Println("Starting server on port: " + app.Config.Port)
-	log.Fatal(http.ListenAndServe(":"+app.Config.Port, app.Router))
+	if gin.Mode() != gin.DebugMode {
+		log.Println("Starting server on port: " + app.Config.Port)
+	}
+	log.Fatal(app.Router.Run(":" + app.Config.Port))
 	// log.Fatal(http.ListenAndServeTLS(cfg.Realm+":"+cfg.Port, cfg.CertFile, cfg.KeyFile, r))
 }

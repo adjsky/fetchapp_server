@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"server/config"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestAuthMiddleware(t *testing.T) {
@@ -13,17 +15,15 @@ func TestAuthMiddleware(t *testing.T) {
 		t.Fatal(err)
 	}
 	authService := NewService(cfg, nil)
-	req, err := http.NewRequest("POST", "/random", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	handler := authService.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
+
+	handler := authService.AuthMiddleware()
 	t.Run("Request with a null authorization header returns 401 status code",
 		func(t *testing.T) {
 			writer := httptest.NewRecorder()
-			handler.ServeHTTP(writer, req)
+			ctx, _ := gin.CreateTestContext(writer)
+			req, _ := http.NewRequest("POST", "/asdasd", nil)
+			ctx.Request = req
+			handler(ctx)
 			if writer.Code != http.StatusUnauthorized {
 				t.Errorf("expected status code: %v, got: %v", http.StatusUnauthorized, writer.Code)
 			}
@@ -31,8 +31,10 @@ func TestAuthMiddleware(t *testing.T) {
 	t.Run("Request with a wrong authorization header returns 401 status code",
 		func(t *testing.T) {
 			writer := httptest.NewRecorder()
-			req.Header.Set("Authorization", "Basic")
-			handler.ServeHTTP(writer, req)
+			ctx, _ := gin.CreateTestContext(writer)
+			req, _ := http.NewRequest("POST", "/asdasd", nil)
+			ctx.Request = req
+			handler(ctx)
 			if writer.Code != http.StatusUnauthorized {
 				t.Errorf("expected status code: %v, got: %v", http.StatusUnauthorized, writer.Code)
 			}
@@ -40,19 +42,25 @@ func TestAuthMiddleware(t *testing.T) {
 	t.Run("Request with an invalid token returns 401 status code",
 		func(t *testing.T) {
 			writer := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(writer)
+			req, _ := http.NewRequest("POST", "/asdasd", nil)
 			req.Header.Set("Authorization", "Bearer "+"asd")
-			handler.ServeHTTP(writer, req)
+			ctx.Request = req
+			handler(ctx)
 			if writer.Code != http.StatusUnauthorized {
 				t.Errorf("expected status code: %v, got: %v", http.StatusUnauthorized, writer.Code)
 			}
 		})
 	t.Run("Middleware should pass a request with a valid token",
 		func(t *testing.T) {
-			writer := httptest.NewRecorder()
 			claims := GenerateClaims("loh@mail.ru")
-			token, _ := GenerateTokenString(claims, authService.config.SecretKey)
+			token, _ := GenerateTokenString(claims, authService.Config.SecretKey)
+			writer := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(writer)
+			req, _ := http.NewRequest("POST", "/asdasd", nil)
 			req.Header.Set("Authorization", "Bearer "+token)
-			handler.ServeHTTP(writer, req)
+			ctx.Request = req
+			handler(ctx)
 			if writer.Code != http.StatusOK {
 				t.Errorf("expected status code: %v, got: %v", http.StatusOK, writer.Code)
 			}

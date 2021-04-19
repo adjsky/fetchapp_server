@@ -8,103 +8,132 @@ import (
 	"os"
 	"path/filepath"
 	"server/config"
-	"server/pkg/handlers"
 	"server/pkg/helpers"
 	"server/pkg/middlewares"
 	"strconv"
 	"strings"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
-type service struct {
-	config *config.Config
+type Service struct {
+	Config *config.Config
 }
 
-// NewService creates a new EGE service
-func NewService(cfg *config.Config) *service {
-	return &service{
-		config: cfg,
+// NewService creates a new EGE Service
+func NewService(cfg *config.Config) *Service {
+	return &Service{
+		Config: cfg,
 	}
 }
 
-// Register service in a provided router
-func (serv *service) Register(r *mux.Router) {
-	multipartMiddleware := middlewares.ContentTypeValidator("multipart/related")
-	r.HandleFunc("/{number:[0-9]+}/types", serv.handleQuestionTypes).Methods("GET")
-	r.Handle("/{number:[0-9]+}", multipartMiddleware(http.HandlerFunc(serv.handleQuestion))).Methods("POST")
-	r.HandleFunc("/available", serv.handleAvailable).Methods("GET")
+// Register Service in a provided router
+func (serv *Service) Register(r *gin.RouterGroup) {
+	// there's a bug that causes wrong route handling but since the question parameter is an integer i can not worry about it
+	// but for awareness i'll leave it here
+	// https://github.com/gin-gonic/gin/issues/2682
+	r.POST("/:question/solve", middlewares.EnsureParamIsInt("question"), serv.handleQuestionSolve)
+	r.GET("/available", serv.handleAvailable)
+	r.GET("/:question/types", middlewares.EnsureParamIsInt("question"), serv.handleQuestionTypes)
 }
 
-func (serv *service) handleQuestion(w http.ResponseWriter, req *http.Request) {
-	mReader := multipart.NewReader(req.Body, req.Context().Value(middlewares.BoundaryID).(string))
+func (serv *Service) handleQuestionSolve(c *gin.Context) {
+	mReader := multipart.NewReader(c.Request.Body, helpers.GetBoundary(c.GetHeader("Content-Type")))
 	metadataPart, err := mReader.NextPart()
 	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, "no metadata part provided")
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "no metadata part provided",
+		})
 		return
 	}
 	var reqData question24Request
 	err = helpers.ParseBodyPartToJSON(metadataPart, &reqData)
 	if err != nil || reqData.Type == 0 {
-		handlers.RespondError(w, http.StatusBadRequest, "wrong metadata body")
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "wrong metadata body",
+		})
 		return
 	}
 	textPart, err := mReader.NextPart()
 	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, "no text part provided")
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "no text part provided",
+		})
 		return
 	}
 	text, err := io.ReadAll(textPart)
 	if err != nil {
-		handlers.RespondError(w, http.StatusBadRequest, err.Error())
+		code := http.StatusBadRequest
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": err.Error(),
+		})
 		return
 	}
-	fName := helpers.SaveToFile(serv.config.TempDir, text)
-	fPath := filepath.Join(serv.config.TempDir, fName)
+	fName := helpers.SaveToFile(serv.Config.TempDir, text)
+	fPath := filepath.Join(serv.Config.TempDir, fName)
 	defer os.Remove(fPath)
-	questionNumber, _ := strconv.Atoi(mux.Vars(req)["number"]) // can ignore an error since router validates that path is a number
-	result, err := processQuestion(serv.config.PythonScriptPath, questionNumber, fPath, &reqData)
-	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
+	questionNumber, _ := strconv.Atoi(c.Param("question")) // can ignore the error since middleware validates that param is a number
+	result, err := processQuestion(serv.Config.PythonScriptPath, questionNumber, fPath, &reqData)
 	if err != nil {
-		log.Println(result)
-		handlers.RespondError(w, http.StatusInternalServerError, "internal server error")
+		log.Println(result, err)
+		code := http.StatusInternalServerError
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "internal server error",
+		})
 		return
 	}
+	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
 	resultInt, _ := strconv.Atoi(result)
-	res := questionResponse{
-		Code:   http.StatusOK,
-		Result: resultInt,
-	}
-	handlers.Respond(w, &res, res.Code)
+	code := http.StatusOK
+	c.JSON(code, gin.H{
+		"code":   code,
+		"result": resultInt,
+	})
 }
 
-func (serv *service) handleAvailable(w http.ResponseWriter, req *http.Request) {
-	result, err := executeScript(serv.config.PythonScriptPath, "available")
-	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
+func (serv *Service) handleAvailable(c *gin.Context) {
+	result, err := executeScript(serv.Config.PythonScriptPath, "available")
 	if err != nil {
-		log.Println(result)
-		handlers.RespondError(w, http.StatusInternalServerError, "internal server error")
+		log.Println(result, err)
+		code := http.StatusInternalServerError
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "internal server error",
+		})
 		return
 	}
-	res := availableResponse{
-		Code:               http.StatusOK,
-		QuestionsAvailable: result,
-	}
-	handlers.Respond(w, &res, res.Code)
+	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
+	code := http.StatusOK
+	c.JSON(code, gin.H{
+		"code":                code,
+		"questions_available": result,
+	})
 }
 
-func (serv *service) handleQuestionTypes(w http.ResponseWriter, req *http.Request) {
-	questionNumber := mux.Vars(req)["number"]
-	result, err := executeScript(serv.config.PythonScriptPath, "types", questionNumber)
-	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
+func (serv *Service) handleQuestionTypes(c *gin.Context) {
+	questionNumber := c.Param("question")
+	result, err := executeScript(serv.Config.PythonScriptPath, "types", questionNumber)
 	if err != nil {
-		log.Println(result)
-		handlers.RespondError(w, http.StatusInternalServerError, "internal server error")
+		log.Println(result, err)
+		code := http.StatusInternalServerError
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": "internal server error",
+		})
 		return
 	}
-	res := questionTypesResponse{
-		Code:           http.StatusOK,
-		TypesAvailable: result,
-	}
-	handlers.Respond(w, &res, res.Code)
+	result = strings.TrimRight(result, "\r\n") // since python prints everything with an endline character we need to trim it
+	code := http.StatusOK
+	c.JSON(code, gin.H{
+		"code":            code,
+		"types_available": result,
+	})
 }
