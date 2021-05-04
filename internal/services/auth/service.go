@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"server/config"
+	"server/internal/services"
 	"server/pkg/helpers"
 	"strings"
 	"sync"
@@ -23,36 +24,43 @@ var emailRegex *regexp.Regexp
 
 const (
 	restoreSessionDuration = time.Minute * 15
+	refreshPeriod          = time.Minute * 5
 )
 
 func init() {
 	emailRegex = regexp.MustCompile(`^\S+@\S+$`)
 }
 
-type RestoreSession struct {
-	Email     string
-	CreatedAt time.Time
+type restoreSession struct {
+	email     string
+	createdAt time.Time
 }
 
-type Service struct {
-	Config          *config.Config
-	Database        *sql.DB
-	RestoreSessions map[string]RestoreSession
-	RestoreMutex    sync.RWMutex
+type authService struct {
+	config          *config.Config
+	database        *sql.DB
+	restoreSessions map[string]restoreSession
+	restoreMutex    sync.RWMutex
 }
 
 // NewService creates a new auth Service
-func NewService(cfg *config.Config, db *sql.DB) *Service {
-	s := Service{
-		Config:          cfg,
-		Database:        db,
-		RestoreSessions: make(map[string]RestoreSession),
+func NewService(cfg *config.Config, db *sql.DB) services.Service {
+	s := &authService{
+		config:          cfg,
+		database:        db,
+		restoreSessions: make(map[string]restoreSession),
 	}
-	return &s
+	go func() {
+		for {
+			time.Sleep(refreshPeriod)
+			s.CheckExpire()
+		}
+	}()
+	return s
 }
 
-// Register auth Service
-func (serv *Service) Register(r *gin.RouterGroup) {
+// Register the auth service
+func (serv *authService) Register(r *gin.RouterGroup) {
 	r.POST("/login", serv.handleLogin)
 	r.POST("/signup", serv.handleSignup)
 	r.PUT("/restore", serv.handleRestore)
@@ -60,17 +68,22 @@ func (serv *Service) Register(r *gin.RouterGroup) {
 	r.POST("/valid", serv.handleValid)
 }
 
+// Close does clean up actions on the service
+func (serv *authService) Close() {
+	//
+}
+
 // CheckExpire checks and deletes outdated restore tokens
-func (serv *Service) CheckExpire() {
-	for k, v := range serv.RestoreSessions {
-		timePassed := time.Since(v.CreatedAt)
+func (serv *authService) CheckExpire() {
+	for k, v := range serv.restoreSessions {
+		timePassed := time.Since(v.createdAt)
 		if timePassed.Seconds() >= restoreSessionDuration.Seconds() {
-			delete(serv.RestoreSessions, k)
+			delete(serv.restoreSessions, k)
 		}
 	}
 }
 
-func (serv *Service) handleLogin(c *gin.Context) {
+func (serv *authService) handleLogin(c *gin.Context) {
 	var reqData loginRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
 		code := http.StatusBadRequest
@@ -81,7 +94,7 @@ func (serv *Service) handleLogin(c *gin.Context) {
 		return
 	}
 	var password string
-	row := serv.Database.QueryRow("SELECT password FROM Users WHERE email = $1", reqData.Email)
+	row := serv.database.QueryRow("SELECT password FROM Users WHERE email = $1", reqData.Email)
 	if err := row.Scan(&password); err != nil {
 		code := http.StatusUnauthorized
 		c.JSON(code, gin.H{
@@ -99,7 +112,7 @@ func (serv *Service) handleLogin(c *gin.Context) {
 		return
 	}
 	claims := GenerateClaims(reqData.Email)
-	token, _ := GenerateTokenString(claims, serv.Config.SecretKey)
+	token, _ := GenerateTokenString(claims, serv.config.SecretKey)
 	code := http.StatusOK
 	c.JSON(code, gin.H{
 		"code":  code,
@@ -107,7 +120,7 @@ func (serv *Service) handleLogin(c *gin.Context) {
 	})
 }
 
-func (serv *Service) handleSignup(c *gin.Context) {
+func (serv *authService) handleSignup(c *gin.Context) {
 	var reqData signupRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
 		code := http.StatusBadRequest
@@ -130,7 +143,7 @@ func (serv *Service) handleSignup(c *gin.Context) {
 	if err != nil {
 		fmt.Println("hash generating error in signup: ", err)
 	}
-	_, err = serv.Database.Exec("INSERT INTO Users (email, password) VALUES ($1, $2)", reqData.Email, hashPassword)
+	_, err = serv.database.Exec("INSERT INTO Users (email, password) VALUES ($1, $2)", reqData.Email, hashPassword)
 	if err != nil {
 		code := http.StatusConflict
 		c.JSON(code, gin.H{
@@ -140,7 +153,7 @@ func (serv *Service) handleSignup(c *gin.Context) {
 		return
 	}
 	claims := GenerateClaims(reqData.Email)
-	token, err := GenerateTokenString(claims, serv.Config.SecretKey)
+	token, err := GenerateTokenString(claims, serv.config.SecretKey)
 	if err != nil {
 		log.Println(err)
 	}
@@ -151,7 +164,7 @@ func (serv *Service) handleSignup(c *gin.Context) {
 	})
 }
 
-func (serv *Service) handleRestore(c *gin.Context) {
+func (serv *authService) handleRestore(c *gin.Context) {
 	if CheckAuthorized(c) {
 		serv.handleRestoreAuth(c)
 	} else {
@@ -159,7 +172,7 @@ func (serv *Service) handleRestore(c *gin.Context) {
 	}
 }
 
-func (serv *Service) handleRestoreAuth(c *gin.Context) {
+func (serv *authService) handleRestoreAuth(c *gin.Context) {
 	var reqData restoreRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
 		code := http.StatusBadRequest
@@ -169,7 +182,7 @@ func (serv *Service) handleRestoreAuth(c *gin.Context) {
 		})
 		return
 	}
-	userClaims, err := GetClaims(GetToken(c), serv.Config.SecretKey)
+	userClaims, err := GetClaims(GetToken(c), serv.config.SecretKey)
 	if err != nil {
 		code := http.StatusBadRequest
 		c.JSON(code, gin.H{
@@ -180,7 +193,7 @@ func (serv *Service) handleRestoreAuth(c *gin.Context) {
 	}
 	var userID int
 	var userPassword string
-	row := serv.Database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", userClaims.Email)
+	row := serv.database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", userClaims.Email)
 	_ = row.Scan(&userID, &userPassword)
 	if bcrypt.CompareHashAndPassword([]byte(userPassword), []byte(reqData.OldPassword)) != nil {
 		code := http.StatusUnauthorized
@@ -194,14 +207,14 @@ func (serv *Service) handleRestoreAuth(c *gin.Context) {
 	if err != nil {
 		fmt.Println("hash generating error in restore: ", err)
 	}
-	_, _ = serv.Database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
+	_, _ = serv.database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
 	code := http.StatusOK
 	c.JSON(code, gin.H{
 		"code": code,
 	})
 }
 
-func (serv *Service) handleRestoreNonAuth(c *gin.Context) {
+func (serv *authService) handleRestoreNonAuth(c *gin.Context) {
 	var reqData restoreRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
 		code := http.StatusBadRequest
@@ -220,7 +233,7 @@ func (serv *Service) handleRestoreNonAuth(c *gin.Context) {
 			})
 			return
 		}
-		row := serv.Database.QueryRow("SELECT ID FROM Users WHERE email = $1", reqData.Email)
+		row := serv.database.QueryRow("SELECT ID FROM Users WHERE email = $1", reqData.Email)
 		if err := row.Scan(); err == sql.ErrNoRows {
 			code := http.StatusBadRequest
 			c.JSON(code, gin.H{
@@ -230,23 +243,23 @@ func (serv *Service) handleRestoreNonAuth(c *gin.Context) {
 			return
 		}
 		code := uniuri.NewLen(8)
-		serv.RestoreMutex.Lock()
-		defer serv.RestoreMutex.Unlock()
-		for k, v := range serv.RestoreSessions {
-			if v.Email == reqData.Email {
-				delete(serv.RestoreSessions, k)
+		serv.restoreMutex.Lock()
+		for k, v := range serv.restoreSessions {
+			if v.email == reqData.Email {
+				delete(serv.restoreSessions, k)
 			}
 		}
-		serv.RestoreSessions[code] = RestoreSession{
-			Email:     reqData.Email,
-			CreatedAt: time.Now(),
+		serv.restoreSessions[code] = restoreSession{
+			email:     reqData.Email,
+			createdAt: time.Now(),
 		}
+		serv.restoreMutex.Unlock()
 		statusCode := http.StatusAccepted
 		c.JSON(statusCode, gin.H{
 			"code": statusCode,
 		})
 		go func() {
-			err := helpers.SendEmail(&serv.Config.SMTP,
+			err := helpers.SendEmail(&serv.config.SMTP,
 				[]string{reqData.Email},
 				[]byte("Subject: Restore account\n"+code))
 			if err != nil {
@@ -262,7 +275,7 @@ func (serv *Service) handleRestoreNonAuth(c *gin.Context) {
 			})
 			return
 		}
-		restoreSession, ok := serv.RestoreSessions[reqData.Code]
+		restoreSession, ok := serv.restoreSessions[reqData.Code]
 		if !ok {
 			code := http.StatusBadRequest
 			c.JSON(code, gin.H{
@@ -273,7 +286,7 @@ func (serv *Service) handleRestoreNonAuth(c *gin.Context) {
 		}
 		var userID int
 		var userPassword string
-		row := serv.Database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", restoreSession.Email)
+		row := serv.database.QueryRow("SELECT ID, password FROM Users WHERE email = $1", restoreSession.email)
 		_ = row.Scan(&userID, &userPassword)
 		if bcrypt.CompareHashAndPassword([]byte(userPassword), []byte(reqData.OldPassword)) != nil {
 			code := http.StatusUnauthorized
@@ -287,8 +300,8 @@ func (serv *Service) handleRestoreNonAuth(c *gin.Context) {
 		if err != nil {
 			fmt.Println("hash generating error in restore: ", err)
 		}
-		_, _ = serv.Database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
-		delete(serv.RestoreSessions, reqData.Code)
+		_, _ = serv.database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
+		delete(serv.restoreSessions, reqData.Code)
 		code := http.StatusOK
 		c.JSON(code, gin.H{
 			"code": code,
@@ -296,7 +309,7 @@ func (serv *Service) handleRestoreNonAuth(c *gin.Context) {
 	}
 }
 
-func (serv *Service) handleValid(c *gin.Context) {
+func (serv *authService) handleValid(c *gin.Context) {
 	var reqData validRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
 		code := http.StatusBadRequest
@@ -306,7 +319,7 @@ func (serv *Service) handleValid(c *gin.Context) {
 		})
 		return
 	}
-	_, err := GetClaims(reqData.Token, serv.Config.SecretKey)
+	_, err := GetClaims(reqData.Token, serv.config.SecretKey)
 	code := http.StatusOK
 	c.JSON(code, gin.H{
 		"code":  code,
@@ -314,7 +327,7 @@ func (serv *Service) handleValid(c *gin.Context) {
 	})
 }
 
-func (serv *Service) handleRestoreValid(c *gin.Context) {
+func (serv *authService) handleRestoreValid(c *gin.Context) {
 	var reqData restoreValidRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
 		code := http.StatusBadRequest
@@ -324,7 +337,7 @@ func (serv *Service) handleRestoreValid(c *gin.Context) {
 		})
 		return
 	}
-	_, ok := serv.RestoreSessions[reqData.Code]
+	_, ok := serv.restoreSessions[reqData.Code]
 	code := http.StatusOK
 	c.JSON(code, gin.H{
 		"code":  code,

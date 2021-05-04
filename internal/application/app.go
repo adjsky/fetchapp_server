@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"server/config"
+	"server/internal/services"
 	"server/internal/services/auth"
 	"server/internal/services/ege"
 	"server/pkg/handlers"
@@ -29,6 +30,7 @@ type App struct {
 	Config   *config.Config
 	Database *sql.DB
 	Router   *gin.Engine
+	Services []services.Service
 }
 
 // New creates the application instance
@@ -47,6 +49,7 @@ func New() *App {
 		Config:   cfg,
 		Database: db,
 		Router:   gin.New(),
+		Services: make([]services.Service, 0, 2),
 	}
 }
 
@@ -70,6 +73,7 @@ func (app *App) initializeServices() {
 		}
 	}()
 	authService.Register(authRouter)
+	app.Services = append(app.Services, authService)
 
 	apiRouter := app.Router.Group("api/")
 	apiRouter.Use(authService.AuthMiddleware())
