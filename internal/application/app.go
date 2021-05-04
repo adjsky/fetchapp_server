@@ -77,6 +77,13 @@ func (app *App) initializeServices() {
 	egeRouter := apiRouter.Group("ege/")
 	egeService := ege.NewService(app.Config)
 	egeService.Register(egeRouter)
+	app.Services = append(app.Services, egeService)
+
+	chatRouter := app.Router.Group("/chat")
+	//chatRouter.Use(auth.Middleware(app.Config.SecretKey))
+	chatService := chat.NewService()
+	chatService.Register(chatRouter)
+	app.Services = append(app.Services, chatService)
 }
 
 func migrateTable(db *sql.DB) {
