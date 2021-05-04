@@ -80,7 +80,7 @@ func (app *App) initializeServices() {
 	app.Services = append(app.Services, egeService)
 
 	chatRouter := app.Router.Group("/chat")
-	//chatRouter.Use(auth.Middleware(app.Config.SecretKey))
+	chatRouter.Use(auth.Middleware(app.Config.SecretKey))
 	chatService := chat.NewService()
 	chatService.Register(chatRouter)
 	app.Services = append(app.Services, chatService)
