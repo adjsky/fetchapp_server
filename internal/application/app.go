@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	// initialize a driver
+	// initialize the database driver
 	_ "github.com/lib/pq"
 )
 

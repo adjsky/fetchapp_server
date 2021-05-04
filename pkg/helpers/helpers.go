@@ -14,7 +14,7 @@ import (
 	"github.com/dchest/uniuri"
 )
 
-// SendEmail sends an email by using smtp protocol
+// SendEmail sends an email via the smtp protocol
 func SendEmail(smtpData *config.SMTPData, to []string, message []byte) error {
 	auth := smtp.PlainAuth("", smtpData.Mail, smtpData.Password, smtpData.Host)
 	err := smtp.SendMail(smtpData.Host+":"+smtpData.Port, auth, smtpData.Mail, to, message)
