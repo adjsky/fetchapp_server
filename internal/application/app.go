@@ -6,10 +6,10 @@ import (
 	"server/config"
 	"server/internal/services"
 	"server/internal/services/auth"
+	"server/internal/services/chat"
 	"server/internal/services/ege"
 	"server/pkg/handlers"
 	"server/pkg/middlewares"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -23,7 +23,6 @@ const (
 		"email VARCHAR(100) NOT NULL UNIQUE," +
 		"password VARCHAR(100) NOT NULL," +
 		"created_at TIMESTAMP NOT NULL DEFAULT NOW());"
-	refreshPeriod = time.Minute * 5
 )
 
 type App struct {
@@ -56,6 +55,9 @@ func New() *App {
 // Close does cleaning operations on the application
 func (app *App) Close() {
 	_ = app.Database.Close()
+	for _, s := range app.Services {
+		s.Close()
+	}
 }
 
 func (app *App) initializeServices() {
@@ -66,17 +68,11 @@ func (app *App) initializeServices() {
 
 	authRouter := app.Router.Group("auth/")
 	authService := auth.NewService(app.Config, app.Database)
-	go func() {
-		for {
-			time.Sleep(refreshPeriod)
-			authService.CheckExpire()
-		}
-	}()
 	authService.Register(authRouter)
 	app.Services = append(app.Services, authService)
 
 	apiRouter := app.Router.Group("api/")
-	apiRouter.Use(authService.AuthMiddleware())
+	apiRouter.Use(auth.Middleware(app.Config.SecretKey))
 
 	egeRouter := apiRouter.Group("ege/")
 	egeService := ege.NewService(app.Config)
