@@ -12,8 +12,8 @@ const (
 	ClaimsKey = "claims"
 )
 
-// AuthMiddleware checks whether a user has JWT token
-func (serv *Service) AuthMiddleware() gin.HandlerFunc {
+// Middleware checks whether a user has JWT token
+func Middleware(secretKey []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		authData := strings.Split(authHeader, " ")
@@ -41,7 +41,7 @@ func (serv *Service) AuthMiddleware() gin.HandlerFunc {
 			})
 			return
 		}
-		claims, err := GetClaims(authData[1], serv.Config.SecretKey)
+		claims, err := GetClaims(authData[1], secretKey)
 		if err != nil {
 			code := http.StatusUnauthorized
 			c.AbortWithStatusJSON(code, gin.H{
