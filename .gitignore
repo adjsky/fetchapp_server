@@ -3,4 +3,3 @@ internal/services/ege/python/scripts/__pycache__/*
 .vscode
 .idea
 internal/services/ege/python/.vscode
-init.sh
