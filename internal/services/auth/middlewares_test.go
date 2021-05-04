@@ -14,9 +14,8 @@ func TestAuthMiddleware(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authService := NewService(cfg, nil)
 
-	handler := authService.AuthMiddleware()
+	handler := Middleware(cfg.SecretKey)
 	t.Run("Request with a null authorization header returns 401 status code",
 		func(t *testing.T) {
 			writer := httptest.NewRecorder()
@@ -54,7 +53,7 @@ func TestAuthMiddleware(t *testing.T) {
 	t.Run("Middleware should pass a request with a valid token",
 		func(t *testing.T) {
 			claims := GenerateClaims("loh@mail.ru")
-			token, _ := GenerateTokenString(claims, authService.Config.SecretKey)
+			token, _ := GenerateTokenString(claims, cfg.SecretKey)
 			writer := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(writer)
 			req, _ := http.NewRequest("POST", "/asdasd", nil)
