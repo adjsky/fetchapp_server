@@ -66,15 +66,15 @@ func (app *App) initializeServices() {
 	app.Router.HandleMethodNotAllowed = true
 	app.Router.NoMethod(handlers.NoMethod)
 
-	authRouter := app.Router.Group("auth/")
+	apiRouter := app.Router.Group("/api")
+	apiRouter.Use(auth.Middleware(app.Config.SecretKey))
+
+	authRouter := apiRouter.Group("/auth")
 	authService := auth.NewService(app.Config, app.Database)
 	authService.Register(authRouter)
 	app.Services = append(app.Services, authService)
 
-	apiRouter := app.Router.Group("api/")
-	apiRouter.Use(auth.Middleware(app.Config.SecretKey))
-
-	egeRouter := apiRouter.Group("ege/")
+	egeRouter := apiRouter.Group("/ege")
 	egeService := ege.NewService(app.Config)
 	egeService.Register(egeRouter)
 	app.Services = append(app.Services, egeService)
