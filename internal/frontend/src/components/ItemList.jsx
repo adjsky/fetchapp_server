@@ -1,7 +1,7 @@
 const React = require("react")
 const PropTypes = require("prop-types")
 const Item = require("./Item.jsx")
-const LanguageContext = require("../Contexts/LanguageContext.jsx")
+const LanguageContext = require("../contexts/LanguageContext.jsx")
 
 class ItemList extends React.Component {
   constructor(props) {

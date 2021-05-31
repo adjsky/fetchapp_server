@@ -1,10 +1,10 @@
 const { nanoid } = require("nanoid")
 const React = require("react")
 const ReactDOM = require("react-dom")
-const InputField = require("./Components/InputField.jsx")
-const ItemList = require("./Components/ItemList.jsx")
-const ItemChangeDialog = require("./Components/ItemChangeDialog.jsx")
-const LanguageContext = require("./Contexts/LanguageContext.jsx")
+const InputField = require("./components/InputField.jsx")
+const ItemList = require("./components/ItemList.jsx")
+const ItemChangeDialog = require("./components/ItemChangeDialog.jsx")
+const LanguageContext = require("./contexts/LanguageContext.jsx")
 require("./style.css")
 
 class App extends React.Component {
