@@ -3,6 +3,3 @@ internal/services/ege/python/scripts/__pycache__/*
 .vscode
 .idea
 internal/services/ege/python/.vscode
-internal/frontend/.vscode
-internal/frontend/dist
-internal/frontend/node_modules
