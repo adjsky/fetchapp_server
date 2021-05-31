@@ -89,11 +89,6 @@ func (app *App) initializeServices() {
 	}
 }
 
-func (app *App) initializeFrontend() {
-	app.Router.Static("/assets", app.Config.FrontendPath+"/assets")
-	app.Router.StaticFile("/", app.Config.FrontendPath+"/index.html")
-}
-
 func migrateTable(db *sql.DB) {
 	_, err := db.Exec(migrationScheme)
 	if err != nil {
@@ -104,9 +99,6 @@ func migrateTable(db *sql.DB) {
 // Start the server
 func (app *App) Start() {
 	app.initializeServices()
-	if !app.Config.OnlyAPI {
-		app.initializeFrontend()
-	}
 	if gin.Mode() != gin.DebugMode {
 		log.Println("Starting server on port: " + app.Config.Port)
 	}

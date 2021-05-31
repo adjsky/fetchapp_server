@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"os"
-	"strconv"
 )
 
 // Config holds data required to start the application
@@ -14,10 +13,8 @@ type Config struct {
 	CertFile         string
 	KeyFile          string
 	PythonScriptPath string
-	FrontendPath     string
 	TempDir          string
 	SMTP             SMTPData
-	OnlyAPI          bool
 }
 
 // SMTPData struct provides data required to send emails
@@ -54,10 +51,6 @@ func Get() (*Config, error) {
 	if pythonScriptPath == "" {
 		return nil, errors.New("no python script path provided")
 	}
-	frontendPath := os.Getenv("FRONTEND_PATH")
-	if frontendPath == "" {
-		return nil, errors.New("no frontend path provided")
-	}
 	tempDir := os.Getenv("TEMP_DIR_PATH")
 	if tempDir == "" {
 		return nil, errors.New("no temporary dir path provided")
@@ -79,7 +72,6 @@ func Get() (*Config, error) {
 	if smtpPort == "" {
 		return nil, errors.New("no smtp port provided")
 	}
-	onlyAPI, _ := strconv.ParseBool(os.Getenv("ONLY_API"))
 
 	return &Config{
 		SecretKey:        []byte(secret),
@@ -88,7 +80,6 @@ func Get() (*Config, error) {
 		CertFile:         certFile,
 		KeyFile:          keyFile,
 		PythonScriptPath: pythonScriptPath,
-		FrontendPath:     frontendPath,
 		TempDir:          tempDir,
 		SMTP: SMTPData{
 			Mail:     smtpMail,
@@ -96,6 +87,5 @@ func Get() (*Config, error) {
 			Host:     smtpHost,
 			Port:     smtpPort,
 		},
-		OnlyAPI: onlyAPI,
 	}, nil
 }
