@@ -104,7 +104,9 @@ func migrateTable(db *sql.DB) {
 // Start the server
 func (app *App) Start() {
 	app.initializeServices()
-	app.initializeFrontend()
+	if !app.Config.OnlyAPI {
+		app.initializeFrontend()
+	}
 	if gin.Mode() != gin.DebugMode {
 		log.Println("Starting server on port: " + app.Config.Port)
 	}

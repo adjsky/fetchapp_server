@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strconv"
 )
 
 // Config holds data required to start the application
@@ -16,6 +17,7 @@ type Config struct {
 	FrontendPath     string
 	TempDir          string
 	SMTP             SMTPData
+	OnlyAPI          bool
 }
 
 // SMTPData struct provides data required to send emails
@@ -77,6 +79,7 @@ func Get() (*Config, error) {
 	if smtpPort == "" {
 		return nil, errors.New("no smtp port provided")
 	}
+	onlyAPI, _ := strconv.ParseBool(os.Getenv("ONLY_API"))
 
 	return &Config{
 		SecretKey:        []byte(secret),
@@ -93,5 +96,6 @@ func Get() (*Config, error) {
 			Host:     smtpHost,
 			Port:     smtpPort,
 		},
+		OnlyAPI: onlyAPI,
 	}, nil
 }
