@@ -9,7 +9,7 @@ import (
 func executeScript(args ...string) (string, error) {
 	var out strings.Builder
 	var errOut strings.Builder
-	command := exec.Command("python", args...)
+	command := exec.Command("python3", args...)
 	command.Stdout = &out
 	command.Stderr = &errOut
 	if err := command.Run(); err != nil {
