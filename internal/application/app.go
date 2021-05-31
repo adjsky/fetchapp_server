@@ -48,7 +48,7 @@ func New() *App {
 		Config:   cfg,
 		Database: db,
 		Router:   gin.New(),
-		Services: make([]services.Service, 0, 2),
+		Services: make([]services.Service, 0),
 	}
 }
 
@@ -89,6 +89,11 @@ func (app *App) initializeServices() {
 	}
 }
 
+func (app *App) initializeFrontend() {
+	app.Router.Static("/assets", app.Config.FrontendPath+"/assets")
+	app.Router.StaticFile("/", app.Config.FrontendPath+"/index.html")
+}
+
 func migrateTable(db *sql.DB) {
 	_, err := db.Exec(migrationScheme)
 	if err != nil {
@@ -99,6 +104,7 @@ func migrateTable(db *sql.DB) {
 // Start the server
 func (app *App) Start() {
 	app.initializeServices()
+	app.initializeFrontend()
 	if gin.Mode() != gin.DebugMode {
 		log.Println("Starting server on port: " + app.Config.Port)
 	}

@@ -13,6 +13,7 @@ type Config struct {
 	CertFile         string
 	KeyFile          string
 	PythonScriptPath string
+	FrontendPath     string
 	TempDir          string
 	SMTP             SMTPData
 }
@@ -51,6 +52,10 @@ func Get() (*Config, error) {
 	if pythonScriptPath == "" {
 		return nil, errors.New("no python script path provided")
 	}
+	frontendPath := os.Getenv("FRONTEND_PATH")
+	if frontendPath == "" {
+		return nil, errors.New("no frontend path provided")
+	}
 	tempDir := os.Getenv("TEMP_DIR_PATH")
 	if tempDir == "" {
 		return nil, errors.New("no temporary dir path provided")
@@ -80,6 +85,7 @@ func Get() (*Config, error) {
 		CertFile:         certFile,
 		KeyFile:          keyFile,
 		PythonScriptPath: pythonScriptPath,
+		FrontendPath:     frontendPath,
 		TempDir:          tempDir,
 		SMTP: SMTPData{
 			Mail:     smtpMail,
