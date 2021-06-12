@@ -62,31 +62,29 @@ func (app *App) Close() {
 
 func (app *App) initializeServices() {
 	app.Router.Use(middlewares.Logger())
+
 	app.Router.NoRoute(handlers.NotFound)
 	app.Router.HandleMethodNotAllowed = true
 	app.Router.NoMethod(handlers.NoMethod)
 
 	apiRouter := app.Router.Group("/api")
-	{
-		authRouter := apiRouter.Group("/auth")
-		authService := auth.NewService(app.Config, app.Database)
-		authService.Register(authRouter)
-		app.Services = append(app.Services, authService)
 
-		egeRouter := apiRouter.Group("/ege")
-		egeRouter.Use(auth.Middleware(app.Config.SecretKey))
-		egeService := ege.NewService(app.Config)
-		egeService.Register(egeRouter)
-		app.Services = append(app.Services, egeService)
-	}
+	authRouter := apiRouter.Group("/auth")
+	authService := auth.NewService(app.Config, app.Database)
+	authService.Register(authRouter)
+	app.Services = append(app.Services, authService)
 
-	chatRouter := app.Router.Group("/chat")
-	{
-		chatRouter.Use(auth.Middleware(app.Config.SecretKey))
-		chatService := chat.NewService()
-		chatService.Register(chatRouter)
-		app.Services = append(app.Services, chatService)
-	}
+	egeRouter := apiRouter.Group("/ege")
+	egeRouter.Use(auth.Middleware(app.Config.SecretKey))
+	egeService := ege.NewService(app.Config)
+	egeService.Register(egeRouter)
+	app.Services = append(app.Services, egeService)
+
+	chatRouter := apiRouter.Group("/chat")
+	chatRouter.Use(auth.Middleware(app.Config.SecretKey))
+	chatService := chat.NewService()
+	chatService.Register(chatRouter)
+	app.Services = append(app.Services, chatService)
 }
 
 func migrateTable(db *sql.DB) {
