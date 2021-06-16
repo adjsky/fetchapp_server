@@ -205,7 +205,7 @@ func (serv *authService) handleRestoreAuth(c *gin.Context) {
 	}
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(reqData.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		fmt.Println("hash generating error in restore: ", err)
+		fmt.Println("hash generation error in restore: ", err)
 	}
 	_, _ = serv.database.Exec("UPDATE Users SET password = $1 WHERE ID = $2", hashPassword, userID)
 	code := http.StatusOK
