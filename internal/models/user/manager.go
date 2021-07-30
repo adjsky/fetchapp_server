@@ -16,7 +16,7 @@ type Manager struct {
 	Database *sql.DB
 }
 
-// NewManager returns a new user model manager
+// NewManager returns an user model manager
 func NewManager(db *sql.DB) *Manager {
 	return &Manager{
 		Database: db,
@@ -59,7 +59,7 @@ func (manager *Manager) MatchPassword(email, password string) (*Model, error) {
 	}, nil
 }
 
-// ChangePassword changes user password
+// ChangePassword changes an user password
 func (manager *Manager) ChangePassword(email, oldPassword, newPassword string) error {
 	var hashedPassword string
 	row := manager.Database.QueryRow("SELECT password FROM Users WHERE email = $1", email)
@@ -83,7 +83,7 @@ func (manager *Manager) ChangePassword(email, oldPassword, newPassword string) e
 	return nil
 }
 
-// IsEmailRegistered checks if there is an user with given email
+// IsEmailRegistered checks if there is an user with a given email
 func (manager *Manager) IsEmailRegistered(email string) bool {
 	row := manager.Database.QueryRow("SELECT EXISTS(SELECT 1 FROM Users WHERE email = $1)", email)
 	var registered bool
@@ -91,7 +91,7 @@ func (manager *Manager) IsEmailRegistered(email string) bool {
 	return registered
 }
 
-// GetModelFromToken returns an user model based on JWT token
+// GetModelFromToken returns an user model based on a JWT token
 func (manager *Manager) GetModelFromToken(token string, secret []byte) (*Model, error) {
 	claims, err := userauth.GetClaims(token, secret)
 	if err != nil {
