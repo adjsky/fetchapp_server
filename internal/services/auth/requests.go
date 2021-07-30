@@ -11,7 +11,7 @@ type signupRequest struct {
 }
 
 type restoreRequest struct {
-	Email       string `json:"email"`
+	Email       string `json:"email" binding:"required"`
 	OldPassword string `json:"old_password"`
 	NewPassword string `json:"new_password"`
 	Code        string `json:"code"`

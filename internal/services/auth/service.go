@@ -210,14 +210,6 @@ func (serv *authService) handleRestoreNotAuth(c *gin.Context) {
 		return
 	}
 	if reqData.Code == "" {
-		if reqData.Email == "" {
-			code := http.StatusBadRequest
-			c.JSON(code, gin.H{
-				"code":    code,
-				"message": "no email provided",
-			})
-			return
-		}
 		isRegistered := serv.userManager.IsEmailRegistered(reqData.Email)
 		if !isRegistered {
 			code := http.StatusBadRequest
@@ -253,19 +245,7 @@ func (serv *authService) handleRestoreNotAuth(c *gin.Context) {
 		}()
 	} else {
 		if reqData.NewPassword == "" || reqData.OldPassword == "" {
-			code := http.StatusBadRequest
-			c.JSON(code, gin.H{
-				"code":    code,
-				"message": "no new or old password provided",
-			})
-			return
-		}
-		if reqData.Email == "" {
-			code := http.StatusBadRequest
-			c.JSON(code, gin.H{
-				"code":    code,
-				"message": "no email provided",
-			})
+			helpers.ResponseInvalidBody(c)
 			return
 		}
 		restoreSession, ok := serv.restoreSessions[reqData.Code]
