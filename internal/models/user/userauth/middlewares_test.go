@@ -1,11 +1,11 @@
-package auth
+package userauth
 
 import (
 	"net/http"
 	"net/http/httptest"
-	"server/config"
 	"testing"
 
+	"github.com/adjsky/fetchapp_server/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -53,7 +53,7 @@ func TestAuthMiddleware(t *testing.T) {
 	t.Run("Middleware should pass a request with a valid token",
 		func(t *testing.T) {
 			claims := GenerateClaims("loh@mail.ru")
-			token, _ := GenerateTokenString(claims, cfg.SecretKey)
+			token, _ := GenerateToken(claims, cfg.SecretKey)
 			writer := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(writer)
 			req, _ := http.NewRequest("POST", "/asdasd", nil)

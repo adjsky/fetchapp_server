@@ -5,12 +5,15 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net/http"
 	"net/smtp"
 	"os"
 	"path/filepath"
-	"server/config"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+
+	"github.com/adjsky/fetchapp_server/config"
 	"github.com/dchest/uniuri"
 )
 
@@ -55,4 +58,13 @@ func GetBoundary(header string) string {
 		return boundary
 	}
 	return ""
+}
+
+// ResponseInvalidBody responses with 400 status code
+func ResponseInvalidBody(c *gin.Context) {
+	code := http.StatusBadRequest
+	c.JSON(code, gin.H{
+		"code":    code,
+		"message": "invalid request body",
+	})
 }

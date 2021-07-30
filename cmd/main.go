@@ -4,8 +4,9 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"server/internal/application"
 	"syscall"
+
+	"github.com/adjsky/fetchapp_server/internal/application"
 )
 
 func main() {

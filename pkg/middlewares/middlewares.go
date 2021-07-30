@@ -2,9 +2,9 @@ package middlewares
 
 import (
 	"log"
-	"server/pkg/handlers"
 	"strconv"
 
+	"github.com/adjsky/fetchapp_server/pkg/handlers"
 	"github.com/gin-gonic/gin"
 )
 

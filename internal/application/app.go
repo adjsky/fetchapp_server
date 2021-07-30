@@ -3,14 +3,16 @@ package application
 import (
 	"database/sql"
 	"log"
-	"server/config"
-	"server/internal/services"
-	"server/internal/services/auth"
-	"server/internal/services/chat"
-	"server/internal/services/ege"
-	"server/pkg/handlers"
-	"server/pkg/middlewares"
 
+	"github.com/adjsky/fetchapp_server/internal/models/user/userauth"
+
+	"github.com/adjsky/fetchapp_server/config"
+	"github.com/adjsky/fetchapp_server/internal/services"
+	"github.com/adjsky/fetchapp_server/internal/services/auth"
+	"github.com/adjsky/fetchapp_server/internal/services/chat"
+	"github.com/adjsky/fetchapp_server/internal/services/ege"
+	"github.com/adjsky/fetchapp_server/pkg/handlers"
+	"github.com/adjsky/fetchapp_server/pkg/middlewares"
 	"github.com/gin-gonic/gin"
 
 	// initialize the database driver
@@ -75,13 +77,13 @@ func (app *App) initializeServices() {
 	app.Services = append(app.Services, authService)
 
 	egeRouter := apiRouter.Group("/ege")
-	egeRouter.Use(auth.Middleware(app.Config.SecretKey))
+	egeRouter.Use(userauth.Middleware(app.Config.SecretKey))
 	egeService := ege.NewService(app.Config)
 	egeService.Register(egeRouter)
 	app.Services = append(app.Services, egeService)
 
 	chatRouter := apiRouter.Group("/chat")
-	chatRouter.Use(auth.Middleware(app.Config.SecretKey))
+	chatRouter.Use(userauth.Middleware(app.Config.SecretKey))
 	chatService := chat.NewService()
 	chatService.Register(chatRouter)
 	app.Services = append(app.Services, chatService)

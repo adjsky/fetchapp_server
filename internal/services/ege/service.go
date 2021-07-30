@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"server/config"
-	"server/internal/services"
-	"server/pkg/helpers"
-	"server/pkg/middlewares"
 	"strconv"
 	"strings"
 
+	"github.com/adjsky/fetchapp_server/config"
+	"github.com/adjsky/fetchapp_server/internal/services"
+	"github.com/adjsky/fetchapp_server/pkg/helpers"
+	"github.com/adjsky/fetchapp_server/pkg/middlewares"
 	"github.com/gin-gonic/gin"
 )
 

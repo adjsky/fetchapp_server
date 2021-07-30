@@ -1,9 +1,10 @@
-package auth
+package userauth
 
 import (
-	"server/config"
 	"testing"
 	"time"
+
+	"github.com/adjsky/fetchapp_server/config"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -15,13 +16,13 @@ func TestGenerateTokenString(t *testing.T) {
 	}
 	t.Run("GenerateTokenString doesn't return an error with valid arguments passed to",
 		func(t *testing.T) {
-			claims := UserClaims{
+			claims := Claims{
 				"John",
 				jwt.StandardClaims{
 					ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
 				},
 			}
-			_, err := GenerateTokenString(&claims, cfg.SecretKey)
+			_, err := GenerateToken(&claims, cfg.SecretKey)
 			if err != nil {
 				t.Error("GenerateTokenString returns an error:", err)
 			}
@@ -42,8 +43,8 @@ func TestGetClaims(t *testing.T) {
 		})
 	t.Run("Token generated from GenerateTokenString returns valid claims",
 		func(t *testing.T) {
-			passedClaims := GenerateClaims("asdasd@mail.ru")
-			tokenString, err := GenerateTokenString(passedClaims, cfg.SecretKey)
+			passedClaims := GenerateClaims("asdjasjdhh@mail.ru")
+			tokenString, err := GenerateToken(passedClaims, cfg.SecretKey)
 			if err != nil {
 				t.Fatal("GenerateTokenString returns an error:", err)
 			}
@@ -57,13 +58,13 @@ func TestGetClaims(t *testing.T) {
 		})
 	t.Run("An outdated token can't pass validation",
 		func(t *testing.T) {
-			outdatedClaims := UserClaims{
+			outdatedClaims := Claims{
 				Email: "asdasd@mail.ru",
 				StandardClaims: jwt.StandardClaims{
 					ExpiresAt: time.Now().Unix() - 10000,
 				},
 			}
-			token, _ := GenerateTokenString(&outdatedClaims, cfg.SecretKey)
+			token, _ := GenerateToken(&outdatedClaims, cfg.SecretKey)
 			claims, err := GetClaims(token, cfg.SecretKey)
 			if claims != nil && err == nil {
 				t.Error("an outdated token should be not valid, but actually is valid")

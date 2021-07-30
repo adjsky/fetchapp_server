@@ -39,14 +39,14 @@ func Get() (*Config, error) {
 	if databaseURL == "" {
 		return nil, errors.New("no database url provided")
 	}
-	certFile := os.Getenv("CERT_FILE")
-	if certFile == "" {
-		// return nil, errors.New("no certification file provided")
-	}
-	keyFile := os.Getenv("KEY_FILE")
-	if keyFile == "" {
-		// return nil, errors.New("no key file provided")
-	}
+	//certFile := os.Getenv("CERT_FILE")
+	//if certFile == "" {
+	//	return nil, errors.New("no certification file provided")
+	//}
+	//keyFile := os.Getenv("KEY_FILE")
+	//if keyFile == "" {
+	//	return nil, errors.New("no key file provided")
+	//}
 	pythonScriptPath := os.Getenv("PYTHON_SCRIPT_PATH")
 	if pythonScriptPath == "" {
 		return nil, errors.New("no python script path provided")
@@ -77,8 +77,6 @@ func Get() (*Config, error) {
 		SecretKey:        []byte(secret),
 		Port:             port,
 		DatabaseURL:      databaseURL,
-		CertFile:         certFile,
-		KeyFile:          keyFile,
 		PythonScriptPath: pythonScriptPath,
 		TempDir:          tempDir,
 		SMTP: SMTPData{

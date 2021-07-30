@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"server/internal/services"
-	"server/internal/services/auth"
 	"sync"
 	"time"
 
+	"github.com/adjsky/fetchapp_server/internal/models/user/userauth"
+
+	"github.com/adjsky/fetchapp_server/internal/services"
 	"github.com/gorilla/websocket"
 
 	"github.com/gin-gonic/gin"
@@ -71,8 +72,8 @@ func (serv *chatService) handleWebsocket(c *gin.Context) {
 		log.Println(err)
 		return
 	}
-	claims, _ := c.Get(auth.ClaimsKey)
-	userClaims, _ := claims.(*auth.UserClaims)
+	claims, _ := c.Get(userauth.ClaimsKey)
+	userClaims, _ := claims.(*userauth.Claims)
 	clientEmail := userClaims.Email
 	log.Println("New client:", clientEmail)
 	serv.clientsSync.Lock()

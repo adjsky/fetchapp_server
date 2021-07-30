@@ -1,4 +1,4 @@
-package auth
+package userauth
 
 import (
 	"errors"
@@ -13,15 +13,15 @@ const (
 	authTokenLifespan = time.Hour * 24
 )
 
-// UserClaims holds user information passed by Authorization HTTP header
-type UserClaims struct {
+// Claims holds user information passed by Authorization HTTP header
+type Claims struct {
 	Email string
 	jwt.StandardClaims
 }
 
 // GenerateClaims generates a new JWT token claims
-func GenerateClaims(email string) *UserClaims {
-	return &UserClaims{
+func GenerateClaims(email string) *Claims {
+	return &Claims{
 		Email: email,
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt:  time.Now().Unix(),
@@ -32,22 +32,22 @@ func GenerateClaims(email string) *UserClaims {
 	}
 }
 
-// GenerateTokenString returns a JWT string that is passed to a client
-func GenerateTokenString(claims *UserClaims, secretKey []byte) (string, error) {
+// GenerateToken returns a JWT string that is passed to a client
+func GenerateToken(claims *Claims, secretKey []byte) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	ss, err := token.SignedString(secretKey)
 	return ss, err
 }
 
 // GetClaims decodes a JWT string passed by a client and returns data associated with it if the token is valid
-func GetClaims(tokenString string, secretKey []byte) (*UserClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
+func GetClaims(tokenString string, secretKey []byte) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return secretKey, nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	if claims, ok := token.Claims.(*UserClaims); ok {
+	if claims, ok := token.Claims.(*Claims); ok {
 		if claims.Issuer == tokenIssuer && claims.Subject == tokenSubject {
 			return claims, nil
 		}
