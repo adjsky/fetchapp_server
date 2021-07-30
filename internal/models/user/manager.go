@@ -46,7 +46,10 @@ func (manager *Manager) MatchPassword(email, password string) (*Model, error) {
 	var hashedPassword string
 	row := manager.Database.QueryRow("SELECT password FROM Users WHERE email = $1", email)
 	if err := row.Scan(&hashedPassword); err != nil {
-		return nil, ErrNoUser
+		if err == sql.ErrNoRows {
+			return nil, ErrNoUser
+		}
+		return nil, ErrInternal
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) != nil {
 		return nil, ErrNotMatched
@@ -61,7 +64,10 @@ func (manager *Manager) ChangePassword(email, oldPassword, newPassword string) e
 	var hashedPassword string
 	row := manager.Database.QueryRow("SELECT password FROM Users WHERE email = $1", email)
 	if err := row.Scan(&hashedPassword); err != nil {
-		return ErrNoUser
+		if err == sql.ErrNoRows {
+			return ErrNoUser
+		}
+		return ErrInternal
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(oldPassword)) != nil {
 		return ErrNotMatched
