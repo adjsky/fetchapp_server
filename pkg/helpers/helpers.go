@@ -60,8 +60,8 @@ func GetBoundary(header string) string {
 	return ""
 }
 
-// ResponseInvalidBody responses with 400 status code
-func ResponseInvalidBody(c *gin.Context) {
+// RespondInvalidBody responses with 400 status code
+func RespondInvalidBody(c *gin.Context) {
 	code := http.StatusBadRequest
 	c.JSON(code, gin.H{
 		"code":    code,

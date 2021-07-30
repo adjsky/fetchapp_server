@@ -87,7 +87,7 @@ func (serv *authService) CheckExpire() {
 func (serv *authService) handleLogin(c *gin.Context) {
 	var reqData loginRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
-		helpers.ResponseInvalidBody(c)
+		helpers.RespondInvalidBody(c)
 		return
 	}
 	model, err := serv.userManager.MatchPassword(reqData.Email, reqData.Password)
@@ -118,7 +118,7 @@ func (serv *authService) handleLogin(c *gin.Context) {
 func (serv *authService) handleSignup(c *gin.Context) {
 	var reqData signupRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
-		helpers.ResponseInvalidBody(c)
+		helpers.RespondInvalidBody(c)
 		return
 	}
 	matched := emailRegex.Match([]byte(reqData.Email))
@@ -171,7 +171,7 @@ func (serv *authService) handleRestore(c *gin.Context) {
 func (serv *authService) handleRestoreAuth(c *gin.Context) {
 	var reqData restoreRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
-		helpers.ResponseInvalidBody(c)
+		helpers.RespondInvalidBody(c)
 		return
 	}
 	model, err := serv.userManager.GetModelFromToken(GetToken(c), serv.config.SecretKey)
@@ -206,7 +206,7 @@ func (serv *authService) handleRestoreAuth(c *gin.Context) {
 func (serv *authService) handleRestoreNotAuth(c *gin.Context) {
 	var reqData restoreRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
-		helpers.ResponseInvalidBody(c)
+		helpers.RespondInvalidBody(c)
 		return
 	}
 	if reqData.Code == "" {
@@ -245,7 +245,7 @@ func (serv *authService) handleRestoreNotAuth(c *gin.Context) {
 		}()
 	} else {
 		if reqData.NewPassword == "" || reqData.OldPassword == "" {
-			helpers.ResponseInvalidBody(c)
+			helpers.RespondInvalidBody(c)
 			return
 		}
 		restoreSession, ok := serv.restoreSessions[reqData.Code]
@@ -282,7 +282,7 @@ func (serv *authService) handleRestoreNotAuth(c *gin.Context) {
 func (serv *authService) handleValid(c *gin.Context) {
 	var reqData validRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
-		helpers.ResponseInvalidBody(c)
+		helpers.RespondInvalidBody(c)
 		return
 	}
 	_, err := serv.userManager.GetModelFromToken(reqData.Token, serv.config.SecretKey)
@@ -296,7 +296,7 @@ func (serv *authService) handleValid(c *gin.Context) {
 func (serv *authService) handleRestoreValid(c *gin.Context) {
 	var reqData restoreValidRequest
 	if err := c.ShouldBindJSON(&reqData); err != nil {
-		helpers.ResponseInvalidBody(c)
+		helpers.RespondInvalidBody(c)
 		return
 	}
 	_, ok := serv.restoreSessions[reqData.Code]

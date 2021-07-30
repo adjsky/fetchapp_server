@@ -6,8 +6,6 @@ import (
 
 	"github.com/adjsky/fetchapp_server/internal/models/user/userauth"
 
-	"github.com/lib/pq"
-
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -25,15 +23,13 @@ func NewManager(db *sql.DB) *Manager {
 
 // Create creates a new user and returns a model
 func (manager *Manager) Create(email, password string) (*Model, error) {
-	hashPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, ErrInternal
 	}
-	_, err = manager.Database.Exec("INSERT INTO Users (email, password) VALUES ($1, $2)", email, hashPassword)
+	_, err = manager.Database.Exec("INSERT INTO Users (email, password) VALUES ($1, $2)", email, hashedPassword)
 	if err != nil {
-		if err, ok := err.(*pq.Error); ok {
-			log.Println(err.Code.Name())
-		}
+		log.Println("manager.Create error: " + err.Error())
 		return nil, ErrEmailRegistered
 	}
 	return &Model{
@@ -46,6 +42,7 @@ func (manager *Manager) MatchPassword(email, password string) (*Model, error) {
 	var hashedPassword string
 	row := manager.Database.QueryRow("SELECT password FROM Users WHERE email = $1", email)
 	if err := row.Scan(&hashedPassword); err != nil {
+		log.Println("manager.MatchPassword error: " + err.Error())
 		if err == sql.ErrNoRows {
 			return nil, ErrNoUser
 		}
@@ -64,6 +61,7 @@ func (manager *Manager) ChangePassword(email, oldPassword, newPassword string) e
 	var hashedPassword string
 	row := manager.Database.QueryRow("SELECT password FROM Users WHERE email = $1", email)
 	if err := row.Scan(&hashedPassword); err != nil {
+		log.Println("manager.ChangePassword error: " + err.Error())
 		if err == sql.ErrNoRows {
 			return ErrNoUser
 		}
@@ -78,6 +76,7 @@ func (manager *Manager) ChangePassword(email, oldPassword, newPassword string) e
 	}
 	_, err = manager.Database.Exec("UPDATE Users SET password = $1 WHERE EMAIL = $2", newHashedPassword, email)
 	if err != nil {
+		log.Println("manager.ChangePassword error: " + err.Error())
 		return ErrInternal
 	}
 	return nil
